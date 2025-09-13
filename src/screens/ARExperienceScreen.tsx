@@ -398,8 +398,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
         </View>
       )}
 
-      {/* Debug Logger Overlay */}
-      <DebugLogger visible={true} />
 
       {/* Floating Controls */}
       <View style={styles.floatingControls}>
@@ -429,6 +427,18 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
         <TouchableOpacity style={styles.controlButton} onPress={captureObservation}>
           <Text style={styles.controlButtonText}>📸 Capture</Text>
         </TouchableOpacity>
+
+        {/* Observation Count Badge */}
+        <View style={styles.observationCounter}>
+          <Text style={styles.observationText}>
+            {language === 'english'
+              ? `${observations.length} observations`
+              : `${observations.length} observaciones`}
+          </Text>
+        </View>
+
+        {/* Debug Logger Badge */}
+        <DebugLogger visible={true} />
 
       </View>
 
@@ -515,14 +525,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
             </TouchableOpacity>
           </View>
 
-          {/* Observation Count */}
-          <View style={styles.observationCounter}>
-            <Text style={styles.observationText}>
-              {language === 'english'
-                ? `${observations.length} observations`
-                : `${observations.length} observaciones`}
-            </Text>
-          </View>
         </KeyboardAvoidingView>
       )}
     </SafeAreaView>
@@ -636,13 +638,12 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
   },
   observationCounter: {
-    position: 'absolute',
-    bottom: 10,
-    right: 20,
     backgroundColor: 'rgba(0, 180, 216, 0.9)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 15,
+    marginTop: 10,
+    alignItems: 'center',
   },
   observationText: {
     color: 'white',
