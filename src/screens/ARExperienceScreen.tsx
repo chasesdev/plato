@@ -30,7 +30,7 @@ interface ConversationEntry {
   content: string;
   reasoning?: string;
   timestamp: Date;
-  image?: string; // Base64 encoded screenshot data
+  image?: string;
 }
 
 interface ARExperienceScreenProps {
@@ -53,9 +53,7 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
   const [modelUrl, setModelUrl] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Speech recognition event listener
   useSpeechRecognitionEvent('result', (event) => {
-    // Ignore speech recognition results when AI is speaking to prevent feedback loop
     if (isAISpeaking) {
       debugLog.addLog('info', 'Speech', '🤖 Ignoring speech during AI output');
       return;
@@ -66,10 +64,8 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
 
     if (event.isFinal && transcript) {
       debugLog.addLog('success', 'Speech', `✅ Final speech: "${transcript}"`);
-      // Populate text input with final transcript for user to review/edit
       setTextInput(transcript);
     } else if (transcript) {
-      // Show partial results in text input for real-time feedback
       setTextInput(transcript);
     }
   });
@@ -84,7 +80,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
     setIsListening(false);
   });
 
-  // Load local USDZ model files bundled with the app
   useEffect(() => {
     const loadModelAsset = async () => {
       try {
@@ -114,7 +109,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
     }
     return () => {
       PlatoAr.removeAllListeners();
-      // Stop speech recognition using expo-speech-recognition
       if (isListening) {
         ExpoSpeechRecognitionModule.stop();
       }
@@ -125,20 +119,17 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
     try {
       debugLog.addLog('info', 'AR', `🚀 Initializing AR with model: ${modelUrl}`);
 
-      // Start AR session with selected model
       if (modelUrl) {
         debugLog.addLog('info', 'AR', '📱 Calling startARSession...');
         const sessionResult = await PlatoAr.startARSession(modelUrl);
         debugLog.addLog(sessionResult ? 'success' : 'error', 'AR', `startARSession result: ${sessionResult}`);
 
-        // WORKAROUND: Direct model loading bypass for view config issue
         debugLog.addLog('info', 'AR', '📦 Calling loadUSDZModel directly...');
         console.log('🎯 WORKAROUND: Calling PlatoAr.loadUSDZModel directly with URL:', modelUrl);
         const loadResult = PlatoAr.loadUSDZModel(modelUrl);
         console.log('🎯 WORKAROUND: loadUSDZModel result:', loadResult);
         debugLog.addLog(loadResult ? 'success' : 'error', 'AR', `loadUSDZModel result: ${loadResult ? 'SUCCESS' : 'FAILED'}`);
 
-        // Give the model a moment to load, then trigger additional loading mechanisms
         setTimeout(() => {
           console.log('🎯 WORKAROUND: Triggering additional AR session after model load');
           if (modelUrl) {
@@ -147,7 +138,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
         }, 2000);
       }
 
-      // Set up AR event listeners (speech now handled by hooks above)
       debugLog.addLog('info', 'AR', '🔧 Setting up AR event listeners...');
 
       const interactionListener = PlatoAr.addModelInteractionListener((event) => {
@@ -166,10 +156,8 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
         }
       });
 
-      // Start voice recognition automatically
       startListening();
 
-      // Add welcome message
       addSystemMessage(
         language === 'english'
           ? `Welcome! You're exploring a ${model}. What do you notice?`
@@ -191,7 +179,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
     try {
       debugLog.addLog('info', 'Voice', '🎤 Starting voice recognition...');
 
-      // Request permissions first
       const { status } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
       if (status !== 'granted') {
         debugLog.addLog('error', 'Voice', '❌ Microphone permission denied');
@@ -202,16 +189,15 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
         return;
       }
 
-      // Start speech recognition with iOS audio session optimized for AR compatibility
       await ExpoSpeechRecognitionModule.start({
         lang: language === 'spanish' ? 'es-ES' : 'en-US',
         interimResults: true,
         maxAlternatives: 1,
         continuous: true,
         iosCategory: {
-          category: 'playAndRecord', // Required for both AR and speech recognition
-          categoryOptions: ['defaultToSpeaker', 'allowBluetooth', 'mixWithOthers'], // mixWithOthers should help with AR
-          mode: 'measurement' // Best for speech recognition accuracy
+          category: 'playAndRecord',
+          categoryOptions: ['defaultToSpeaker', 'allowBluetooth', 'mixWithOthers'],
+          mode: 'measurement'
         }
       });
 
@@ -240,7 +226,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
   };
 
   const handleVoiceInput = async (input: string) => {
-    // Add student observation
     const studentEntry: ConversationEntry = {
       role: 'student',
       content: input,
@@ -248,8 +233,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
     };
     setConversation((prev) => [...prev, studentEntry]);
     setObservations((prev) => [...prev, input]);
-
-    // Get AI response
     try {
       const response: AIResponse = await getSocraticResponse(
         input,
@@ -266,15 +249,11 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
         timestamp: new Date(),
       };
       setConversation((prev) => [...prev, aiEntry]);
-
-      // Speak the AI response with speech recognition management
       speakAIResponse(response.question);
     } catch (error) {
       console.error('Error getting AI response:', error);
       addSystemMessage('Unable to get AI response. Please continue observing.');
     }
-
-    // Auto-scroll to bottom
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 100);
@@ -293,7 +272,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
     setShowConversation(!showConversation);
   };
 
-  // Helper function to speak AI responses while managing speech recognition
   const speakAIResponse = (text: string) => {
     setIsAISpeaking(true);
     debugLog.addLog('info', 'AI', '🤖 AI starting to speak, speech recognition paused');
@@ -315,14 +293,12 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
         debugLog.addLog('error', 'AI', '❌ AI speech error, speech recognition resumed');
       },
     });
-
-    // Fail-safe timeout to ensure AI speaking state doesn't get stuck
     setTimeout(() => {
       if (isAISpeaking) {
         setIsAISpeaking(false);
         debugLog.addLog('info', 'AI', '⏰ AI speech timeout, force resumed speech recognition');
       }
-    }, 30000); // 30 second timeout
+    }, 30000);
   };
 
   const captureObservation = async () => {
@@ -335,7 +311,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
       console.log('🖼️ Screenshot data length:', screenshot.length);
       console.log('🖼️ Screenshot starts with valid base64:', /^[A-Za-z0-9+/]/.test(screenshot));
 
-      // Create a student message with the screenshot
       const studentEntry: ConversationEntry = {
         role: 'student',
         content: language === 'english' ? 'Here\'s what I\'m observing in AR:' : 'Esto es lo que estoy observando en AR:',
@@ -346,12 +321,9 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
       setConversation((prev) => [...prev, studentEntry]);
       console.log('🎯 WORKAROUND: Screenshot added as student message, length:', screenshot.length, 'characters');
 
-      // Auto-scroll to bottom to show the new screenshot
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: true });
       }, 100);
-
-      // Get AI response to the screenshot
       try {
         const response = await getSocraticResponse(
           'I captured a screenshot of what I\'m seeing',
@@ -368,8 +340,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
           timestamp: new Date(),
         };
         setConversation((prev) => [...prev, aiEntry]);
-
-        // Speak the AI response with speech recognition management
         speakAIResponse(response.question);
       } catch (error) {
         console.error('Error getting AI response to screenshot:', error);
@@ -383,7 +353,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* AR View */}
       {modelUrl ? (
         <PlatoArView
           style={styles.arView}
@@ -399,7 +368,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
       )}
 
 
-      {/* Floating Controls */}
       <View style={styles.floatingControls}>
         <TouchableOpacity
           style={[
@@ -428,7 +396,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
           <Text style={styles.controlButtonText}>📸 Capture</Text>
         </TouchableOpacity>
 
-        {/* Observation Count Badge */}
         <View style={styles.observationCounter}>
           <Text style={styles.observationText}>
             {language === 'english'
@@ -437,13 +404,11 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
           </Text>
         </View>
 
-        {/* Debug Logger Badge */}
         <DebugLogger visible={true} />
 
       </View>
 
 
-      {/* Conversation Panel */}
       {showConversation && (
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -496,7 +461,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
             ))}
           </ScrollView>
 
-          {/* Text Input for Development Mode */}
           <View style={styles.inputContainer}>
             <View style={styles.textInputWrapper}>
               <TextInput
@@ -577,7 +541,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 0, 0, 0.9)',
   },
   aiSpeakingButton: {
-    backgroundColor: 'rgba(128, 0, 128, 0.9)', // Purple for AI speaking
+    backgroundColor: 'rgba(128, 0, 128, 0.9)',
   },
   controlButtonText: {
     color: 'white',
@@ -636,7 +600,7 @@ const styles = StyleSheet.create({
   },
   screenshotImage: {
     width: '100%',
-    aspectRatio: 19.5 / 9, // iPhone camera aspect ratio (approximately 2.17:1)
+    aspectRatio: 19.5 / 9,
     marginTop: 8,
     borderRadius: 8,
     backgroundColor: '#f0f0f0',

@@ -1,6 +1,5 @@
 import Constants from 'expo-constants';
 
-// React Native compatible version
 export interface AIResponse {
   question: string;
   reasoning: string;
@@ -9,7 +8,6 @@ export interface AIResponse {
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-// Get API key from app config
 const getApiKey = () => {
   return Constants.expoConfig?.extra?.openRouterApiKey || process.env.REACT_APP_OPENROUTER_KEY || '';
 };
@@ -56,7 +54,7 @@ Question: What happens when many of these angled molecules stack together?
         'X-Title': 'Plato Science AR'
       },
       body: JSON.stringify({
-        model: 'qwen/qwq-32b',  // 131K context window
+        model: 'qwen/qwq-32b',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: studentInput }
@@ -90,7 +88,6 @@ Question: What happens when many of these angled molecules stack together?
     const data = await response.json();
     const fullResponse = data.choices[0].message.content;
     
-    // Parse reasoning and question
     let reasoning = '';
     let question = fullResponse;
     
@@ -107,7 +104,6 @@ Question: What happens when many of these angled molecules stack together?
     };
   } catch (error) {
     console.error('QwQ-32B Error:', error);
-    // Try DeepSeek-R1 as fallback
     return tryDeepSeekFallback(studentInput, currentPhenomena, language);
   }
 }
@@ -130,7 +126,7 @@ async function tryDeepSeekFallback(
         'X-Title': 'Plato Science AR'
       },
       body: JSON.stringify({
-        model: 'deepseek/deepseek-chat',  // Free tier available
+        model: 'deepseek/deepseek-chat',
         messages: [
           { 
             role: 'system', 
@@ -161,7 +157,6 @@ async function tryDeepSeekFallback(
     console.error('DeepSeek Error:', error);
   }
   
-  // Final fallback to hardcoded questions
   return getFallbackQuestion(currentPhenomena, language);
 }
 
@@ -179,7 +174,7 @@ export async function analyzeARInteraction(
         'X-Title': 'Plato Science AR'
       },
       body: JSON.stringify({
-        model: 'google/gemini-flash-1.5',  // Good vision model, affordable
+        model: 'google/gemini-flash-1.5',
         messages: [{
           role: 'user',
           content: [
@@ -271,5 +266,4 @@ function getFallbackQuestion(phenomena: string, language: 'english' | 'spanish')
   };
 }
 
-// Export types
 export type { AIResponse };

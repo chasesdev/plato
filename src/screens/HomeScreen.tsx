@@ -61,7 +61,6 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Plato</Text>
           <Text style={styles.subtitle}>
@@ -71,7 +70,6 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* Language Toggle */}
         <View style={styles.languageContainer}>
           <Text style={styles.languageLabel}>
             {language === 'english' ? 'Language' : 'Idioma'}
@@ -88,7 +86,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Model Selection */}
         <View style={styles.modelsSection}>
           <Text style={styles.sectionTitle}>
             {language === 'english' ? 'Choose a Model' : 'Elige un Modelo'}
@@ -120,7 +117,6 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Instructions */}
         <View style={styles.instructionsSection}>
           <Text style={styles.sectionTitle}>
             {language === 'english' ? 'How it Works' : 'Cómo Funciona'}
@@ -149,14 +145,12 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Start Button */}
         <TouchableOpacity style={styles.startButton} onPress={startARExperience}>
           <Text style={styles.startButtonText}>
             {language === 'english' ? '🚀 Start AR Experience' : '🚀 Iniciar Experiencia AR'}
           </Text>
         </TouchableOpacity>
 
-        {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
             {language === 'english'
