@@ -47,6 +47,7 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
   const [conversation, setConversation] = useState<ConversationEntry[]>([]);
   const [observations, setObservations] = useState<string[]>([]);
   const [isListening, setIsListening] = useState(false);
+  const [isAISpeaking, setIsAISpeaking] = useState(false);
   const [showConversation, setShowConversation] = useState(true);
   const [textInput, setTextInput] = useState('');
   const [modelUrl, setModelUrl] = useState<string | null>(null);
@@ -54,6 +55,12 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
 
   // Speech recognition event listener
   useSpeechRecognitionEvent('result', (event) => {
+    // Ignore speech recognition results when AI is speaking to prevent feedback loop
+    if (isAISpeaking) {
+      debugLog.addLog('info', 'Speech', '🤖 Ignoring speech during AI output');
+      return;
+    }
+
     debugLog.addLog('info', 'Speech', `🗣️ Speech result: "${event.results[0]?.transcript}" (${event.isFinal ? 'FINAL' : 'partial'})`);
     const transcript = event.results[0]?.transcript || '';
 
@@ -260,12 +267,8 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
       };
       setConversation((prev) => [...prev, aiEntry]);
 
-      // Speak the AI response
-      Speech.speak(response.question, {
-        language: language === 'spanish' ? 'es' : 'en',
-        pitch: 1.0,
-        rate: 0.9,
-      });
+      // Speak the AI response with speech recognition management
+      speakAIResponse(response.question);
     } catch (error) {
       console.error('Error getting AI response:', error);
       addSystemMessage('Unable to get AI response. Please continue observing.');
@@ -290,12 +293,48 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
     setShowConversation(!showConversation);
   };
 
+  // Helper function to speak AI responses while managing speech recognition
+  const speakAIResponse = (text: string) => {
+    setIsAISpeaking(true);
+    debugLog.addLog('info', 'AI', '🤖 AI starting to speak, speech recognition paused');
+
+    Speech.speak(text, {
+      language: language === 'spanish' ? 'es' : 'en',
+      pitch: 1.0,
+      rate: 0.9,
+      onDone: () => {
+        setIsAISpeaking(false);
+        debugLog.addLog('info', 'AI', '✅ AI finished speaking, speech recognition resumed');
+      },
+      onStopped: () => {
+        setIsAISpeaking(false);
+        debugLog.addLog('info', 'AI', '⏹️ AI speech stopped, speech recognition resumed');
+      },
+      onError: () => {
+        setIsAISpeaking(false);
+        debugLog.addLog('error', 'AI', '❌ AI speech error, speech recognition resumed');
+      },
+    });
+
+    // Fail-safe timeout to ensure AI speaking state doesn't get stuck
+    setTimeout(() => {
+      if (isAISpeaking) {
+        setIsAISpeaking(false);
+        debugLog.addLog('info', 'AI', '⏰ AI speech timeout, force resumed speech recognition');
+      }
+    }, 30000); // 30 second timeout
+  };
+
   const captureObservation = async () => {
     console.log('🎯 WORKAROUND: Calling module-level PlatoAr.captureARScreenshot()');
     const screenshot = await PlatoAr.captureARScreenshot();
     console.log('🎯 WORKAROUND: Screenshot result:', screenshot ? 'SUCCESS - got base64 image' : 'FAILED - null');
 
     if (screenshot) {
+      console.log('🖼️ Screenshot data preview:', screenshot.substring(0, 100) + '...');
+      console.log('🖼️ Screenshot data length:', screenshot.length);
+      console.log('🖼️ Screenshot starts with valid base64:', /^[A-Za-z0-9+/]/.test(screenshot));
+
       // Create a student message with the screenshot
       const studentEntry: ConversationEntry = {
         role: 'student',
@@ -330,12 +369,8 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
         };
         setConversation((prev) => [...prev, aiEntry]);
 
-        // Speak the AI response
-        Speech.speak(response.question, {
-          language: language === 'spanish' ? 'es' : 'en',
-          pitch: 1.0,
-          rate: 0.9,
-        });
+        // Speak the AI response with speech recognition management
+        speakAIResponse(response.question);
       } catch (error) {
         console.error('Error getting AI response to screenshot:', error);
         addSystemMessage('Unable to get AI response to screenshot. Please continue observing.');
@@ -369,11 +404,16 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
       {/* Floating Controls */}
       <View style={styles.floatingControls}>
         <TouchableOpacity
-          style={[styles.controlButton, isListening && styles.listeningButton]}
-          onPress={isListening ? stopListening : startListening}
+          style={[
+            styles.controlButton,
+            isListening && styles.listeningButton,
+            isAISpeaking && styles.aiSpeakingButton
+          ]}
+          onPress={isAISpeaking ? undefined : (isListening ? stopListening : startListening)}
+          disabled={isAISpeaking}
         >
           <Text style={styles.controlButtonText}>
-            {isListening ? '🔴 Listening' : '🎤 Speak'}
+            {isAISpeaking ? '🤖 AI Speaking' : (isListening ? '🔴 Listening' : '🎤 Speak')}
           </Text>
         </TouchableOpacity>
 
@@ -426,11 +466,16 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
                 )}
                 <Text style={styles.messageText}>{entry.content}</Text>
                 {entry.image && (
-                  <Image
-                    source={{ uri: `data:image/png;base64,${entry.image}` }}
-                    style={styles.screenshotImage}
-                    resizeMode="contain"
-                  />
+                  <View>
+                    <Text style={styles.debugText}>📷 Image data length: {entry.image.length}</Text>
+                    <Image
+                      source={{ uri: `data:image/png;base64,${entry.image}` }}
+                      style={styles.screenshotImage}
+                      resizeMode="contain"
+                      onLoad={() => console.log('🖼️ Screenshot image loaded successfully')}
+                      onError={(error) => console.log('🔴 Screenshot image failed to load:', error.nativeEvent)}
+                    />
+                  </View>
                 )}
                 {entry.reasoning && (
                   <Text style={styles.reasoningText}>
@@ -519,6 +564,9 @@ const styles = StyleSheet.create({
   listeningButton: {
     backgroundColor: 'rgba(255, 0, 0, 0.9)',
   },
+  aiSpeakingButton: {
+    backgroundColor: 'rgba(128, 0, 128, 0.9)', // Purple for AI speaking
+  },
   controlButtonText: {
     color: 'white',
     fontWeight: '600',
@@ -576,10 +624,16 @@ const styles = StyleSheet.create({
   },
   screenshotImage: {
     width: '100%',
-    height: 150,
+    aspectRatio: 19.5 / 9, // iPhone camera aspect ratio (approximately 2.17:1)
     marginTop: 8,
     borderRadius: 8,
     backgroundColor: '#f0f0f0',
+  },
+  debugText: {
+    fontSize: 10,
+    color: '#666',
+    marginTop: 4,
+    fontFamily: 'monospace',
   },
   observationCounter: {
     position: 'absolute',
