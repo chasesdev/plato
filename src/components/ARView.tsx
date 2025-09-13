@@ -25,7 +25,8 @@ const ARView: React.FC<ARViewProps> = ({ currentModel, onInteraction }) => {
   const [isARSupported, setIsARSupported] = useState(false);
 
   useEffect(() => {
-    if (!mountRef.current) return;
+    const currentMount = mountRef.current;
+    if (!currentMount) return;
 
     // Initialize Three.js scene with Amplify neutral background
     const scene = new THREE.Scene();
@@ -35,23 +36,23 @@ const ARView: React.FC<ARViewProps> = ({ currentModel, onInteraction }) => {
     // Camera setup
     const camera = new THREE.PerspectiveCamera(
       75,
-      mountRef.current.clientWidth / mountRef.current.clientHeight,
+      currentMount.clientWidth / currentMount.clientHeight,
       0.1,
       1000
     );
     camera.position.z = 3;
 
     // Renderer setup
-    const renderer = new THREE.WebGLRenderer({ 
-      antialias: true, 
-      alpha: true 
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true
     });
-    renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+    renderer.setSize(currentMount.clientWidth, currentMount.clientHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     rendererRef.current = renderer;
-    mountRef.current.appendChild(renderer.domElement);
+    currentMount.appendChild(renderer.domElement);
 
     // Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -90,7 +91,7 @@ const ARView: React.FC<ARViewProps> = ({ currentModel, onInteraction }) => {
     const mouse = new THREE.Vector2();
 
     const handleClick = (event: MouseEvent) => {
-      const bounds = mountRef.current?.getBoundingClientRect();
+      const bounds = currentMount?.getBoundingClientRect();
       if (!bounds) return;
 
       mouse.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
@@ -159,11 +160,11 @@ const ARView: React.FC<ARViewProps> = ({ currentModel, onInteraction }) => {
 
     // Handle resize
     const handleResize = () => {
-      if (!mountRef.current) return;
-      
-      camera.aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
+      if (!currentMount) return;
+
+      camera.aspect = currentMount.clientWidth / currentMount.clientHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+      renderer.setSize(currentMount.clientWidth, currentMount.clientHeight);
     };
     window.addEventListener('resize', handleResize);
 
@@ -176,11 +177,11 @@ const ARView: React.FC<ARViewProps> = ({ currentModel, onInteraction }) => {
       window.removeEventListener('resize', handleResize);
       controls.dispose();
       renderer.dispose();
-      if (mountRef.current && renderer.domElement) {
-        mountRef.current.removeChild(renderer.domElement);
+      if (currentMount && renderer.domElement) {
+        currentMount.removeChild(renderer.domElement);
       }
     };
-  }, [onInteraction]);
+  }, [onInteraction, currentModel]);
 
   // Update model when currentModel changes
   useEffect(() => {

@@ -35,7 +35,7 @@ function App() {
       timestamp: new Date().toISOString()
     };
     setConversation([welcomeMessage]);
-  }, []);
+  }, [language]);
 
   // Auto-scroll to bottom of conversation
   useEffect(() => {
