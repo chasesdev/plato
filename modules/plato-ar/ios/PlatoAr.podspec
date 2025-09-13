@@ -19,10 +19,7 @@ Pod::Spec.new do |s|
   # Expo modules require Swift 5.0
   s.swift_version    = '5.0'
 
-  if !$ExpoUseSources&.include?(package['name']) && ENV['EXPO_USE_SOURCE'].to_i == 0 && File.exist?("#{s.name}.xcframework")
-    s.source_files = "**/*.h"
-    s.vendored_frameworks = "#{s.name}.xcframework"
-  else
-    s.source_files = "**/*.{h,m,swift}"
-  end
+  # Always use source files for local development
+  s.source_files = "**/*.{h,m,mm,swift}"
+  s.public_header_files = "**/*.h"
 end

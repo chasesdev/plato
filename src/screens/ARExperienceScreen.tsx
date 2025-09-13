@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PlatoAr, PlatoArView } from '../../modules/plato-ar';
 import { getSocraticResponse, AIResponse } from '../services/SocraticAI';
+import DebugLogger, { debugLog } from '../components/DebugLogger';
 import * as Speech from 'expo-speech';
 import { Asset } from 'expo-asset';
 
@@ -67,13 +68,19 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
 
   const initializeAR = async () => {
     try {
+      debugLog.addLog('info', 'AR', `🚀 Initializing AR with model: ${modelUrl}`);
+
       // Start AR session with selected model
-      await PlatoAr.startARSession(modelUrl);
+      debugLog.addLog('info', 'AR', '📱 Calling startARSession...');
+      const sessionResult = await PlatoAr.startARSession(modelUrl);
+      debugLog.addLog(sessionResult ? 'success' : 'error', 'AR', `startARSession result: ${sessionResult}`);
 
       // WORKAROUND: Direct model loading bypass for view config issue
+      debugLog.addLog('info', 'AR', '📦 Calling loadUSDZModel directly...');
       console.log('🎯 WORKAROUND: Calling PlatoAr.loadUSDZModel directly with URL:', modelUrl);
       const loadResult = PlatoAr.loadUSDZModel(modelUrl);
       console.log('🎯 WORKAROUND: loadUSDZModel result:', loadResult);
+      debugLog.addLog(loadResult ? 'success' : 'error', 'AR', `loadUSDZModel result: ${loadResult}`);
 
       // Give the model a moment to load, then trigger additional loading mechanisms
       setTimeout(() => {
@@ -123,9 +130,12 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
 
   const startListening = async () => {
     try {
+      debugLog.addLog('info', 'Voice', '🎤 Starting voice recognition...');
       await PlatoAr.startVoiceRecognition();
       setIsListening(true);
+      debugLog.addLog('success', 'Voice', '✅ Voice recognition started');
     } catch (error) {
+      debugLog.addLog('error', 'Voice', `❌ Voice recognition failed: ${error}`);
       Alert.alert(
         'Permission Required',
         'Please enable microphone access to use voice input'
@@ -134,8 +144,10 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
   };
 
   const stopListening = () => {
+    debugLog.addLog('info', 'Voice', '🛑 Stopping voice recognition...');
     PlatoAr.stopVoiceRecognition();
     setIsListening(false);
+    debugLog.addLog('info', 'Voice', '✅ Voice recognition stopped');
   };
 
   const handleVoiceInput = async (input: string) => {
@@ -220,6 +232,9 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
         onPinch={(e) => console.log('Pinch:', e.nativeEvent)}
         onRotate={(e) => console.log('Rotate:', e.nativeEvent)}
       />
+
+      {/* Debug Logger Overlay */}
+      <DebugLogger visible={true} />
 
       {/* Floating Controls */}
       <View style={styles.floatingControls}>
