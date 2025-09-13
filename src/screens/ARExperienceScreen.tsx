@@ -10,6 +10,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PlatoAr, PlatoArView } from '../../modules/plato-ar';
@@ -29,6 +30,7 @@ interface ConversationEntry {
   content: string;
   reasoning?: string;
   timestamp: Date;
+  image?: string; // Base64 encoded screenshot data
 }
 
 interface ARExperienceScreenProps {
@@ -45,7 +47,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
   const [conversation, setConversation] = useState<ConversationEntry[]>([]);
   const [observations, setObservations] = useState<string[]>([]);
   const [isListening, setIsListening] = useState(false);
-  const [currentTranscript, setCurrentTranscript] = useState('');
   const [showConversation, setShowConversation] = useState(true);
   const [textInput, setTextInput] = useState('');
   const [modelUrl, setModelUrl] = useState<string | null>(null);
@@ -54,11 +55,15 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
   // Speech recognition event listener
   useSpeechRecognitionEvent('result', (event) => {
     debugLog.addLog('info', 'Speech', `🗣️ Speech result: "${event.results[0]?.transcript}" (${event.isFinal ? 'FINAL' : 'partial'})`);
-    setCurrentTranscript(event.results[0]?.transcript || '');
-    if (event.isFinal && event.results[0]?.transcript) {
-      debugLog.addLog('success', 'Speech', `✅ Final speech: "${event.results[0].transcript}"`);
-      handleVoiceInput(event.results[0].transcript);
-      setCurrentTranscript('');
+    const transcript = event.results[0]?.transcript || '';
+
+    if (event.isFinal && transcript) {
+      debugLog.addLog('success', 'Speech', `✅ Final speech: "${transcript}"`);
+      // Populate text input with final transcript for user to review/edit
+      setTextInput(transcript);
+    } else if (transcript) {
+      // Show partial results in text input for real-time feedback
+      setTextInput(transcript);
     }
   });
 
@@ -291,8 +296,50 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
     console.log('🎯 WORKAROUND: Screenshot result:', screenshot ? 'SUCCESS - got base64 image' : 'FAILED - null');
 
     if (screenshot) {
-      addSystemMessage('Screenshot captured with current observations');
-      console.log('🎯 WORKAROUND: Screenshot length:', screenshot.length, 'characters');
+      // Create a student message with the screenshot
+      const studentEntry: ConversationEntry = {
+        role: 'student',
+        content: language === 'english' ? 'Here\'s what I\'m observing in AR:' : 'Esto es lo que estoy observando en AR:',
+        image: screenshot,
+        timestamp: new Date(),
+      };
+
+      setConversation((prev) => [...prev, studentEntry]);
+      console.log('🎯 WORKAROUND: Screenshot added as student message, length:', screenshot.length, 'characters');
+
+      // Auto-scroll to bottom to show the new screenshot
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+
+      // Get AI response to the screenshot
+      try {
+        const response = await getSocraticResponse(
+          'I captured a screenshot of what I\'m seeing',
+          model,
+          observations,
+          'AR screenshot',
+          language
+        );
+
+        const aiEntry: ConversationEntry = {
+          role: 'ai',
+          content: response.question,
+          reasoning: response.reasoning,
+          timestamp: new Date(),
+        };
+        setConversation((prev) => [...prev, aiEntry]);
+
+        // Speak the AI response
+        Speech.speak(response.question, {
+          language: language === 'spanish' ? 'es' : 'en',
+          pitch: 1.0,
+          rate: 0.9,
+        });
+      } catch (error) {
+        console.error('Error getting AI response to screenshot:', error);
+        addSystemMessage('Unable to get AI response to screenshot. Please continue observing.');
+      }
     } else {
       addSystemMessage('Screenshot failed - no AR content captured');
       console.log('🎯 WORKAROUND: Screenshot failed - likely no model loaded yet');
@@ -345,12 +392,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
 
       </View>
 
-      {/* Current Transcript */}
-      {currentTranscript ? (
-        <View style={styles.transcriptContainer}>
-          <Text style={styles.transcriptText}>{currentTranscript}</Text>
-        </View>
-      ) : null}
 
       {/* Conversation Panel */}
       {showConversation && (
@@ -384,6 +425,13 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
                   </Text>
                 )}
                 <Text style={styles.messageText}>{entry.content}</Text>
+                {entry.image && (
+                  <Image
+                    source={{ uri: `data:image/png;base64,${entry.image}` }}
+                    style={styles.screenshotImage}
+                    resizeMode="contain"
+                  />
+                )}
                 {entry.reasoning && (
                   <Text style={styles.reasoningText}>
                     💭 {entry.reasoning}
@@ -476,19 +524,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-  transcriptContainer: {
-    position: 'absolute',
-    bottom: 320,
-    left: 20,
-    right: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    padding: 12,
-    borderRadius: 12,
-  },
-  transcriptText: {
-    fontSize: 16,
-    color: '#333',
-  },
   conversationPanel: {
     position: 'absolute',
     bottom: 0,
@@ -538,6 +573,13 @@ const styles = StyleSheet.create({
     color: '#888',
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  screenshotImage: {
+    width: '100%',
+    height: 150,
+    marginTop: 8,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
   },
   observationCounter: {
     position: 'absolute',

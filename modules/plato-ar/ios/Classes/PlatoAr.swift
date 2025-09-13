@@ -270,10 +270,15 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
   }
 
   func loadModel(from urlString: String) {
-    guard let arView = arView,
-          let url = URL(string: urlString) else {
-      print("🔴 Cannot load model: AR view not ready or invalid URL: \(urlString)")
-      module?.sendEvent(EVENT_AR_ERROR, ["error": "Invalid model URL or AR view not ready"])
+    guard let arView = arView else {
+      print("🔴 Cannot load model: AR view not ready")
+      module?.sendEvent(EVENT_AR_ERROR, ["error": "AR view not ready"])
+      return
+    }
+
+    guard URL(string: urlString) != nil else {
+      print("🔴 Cannot load model: Invalid URL: \(urlString)")
+      module?.sendEvent(EVENT_AR_ERROR, ["error": "Invalid model URL"])
       return
     }
 
@@ -526,7 +531,11 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
     let (distance, yOffset, scale) = getModelSpecificSettings(from: urlString)
 
     // Calculate position relative to plane center
-    let planePosition = planeAnchor.transform.translation
+    let planePosition = SIMD3<Float>(
+      planeAnchor.transform.columns.3.x,
+      planeAnchor.transform.columns.3.y,
+      planeAnchor.transform.columns.3.z
+    )
     let modelPosition = SIMD3<Float>(
       planePosition.x,
       planePosition.y + yOffset, // Slightly above the plane
