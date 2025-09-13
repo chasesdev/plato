@@ -1,0 +1,13 @@
+{
+  "ios": {
+    "infoPlist": {
+      "NSCameraUsageDescription": "This app uses the camera for AR experiences",
+      "NSMicrophoneUsageDescription": "This app uses the microphone for voice interactions during AR",
+      "NSSpeechRecognitionUsageDescription": "This app uses speech recognition to understand your observations"
+    },
+    "deploymentTarget": "13.0"
+  },
+  "android": {},
+  "moduleVersion": "3.0.0",
+  "sdkVersion": "54.0.0"
+}

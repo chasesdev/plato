@@ -1,0 +1,26 @@
+{
+  "name": "plato-ar",
+  "version": "1.0.0",
+  "description": "AR module for Plato with ARKit and voice integration",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "expo": {
+    "name": "plato-ar",
+    "ios": {
+      "modules": ["PlatoArModule"]
+    },
+    "platforms": ["ios"],
+    "moduleType": "local"
+  },
+  "peerDependencies": {
+    "expo": "^54.0.0",
+    "expo-modules-core": "^3.0.0",
+    "react": "*",
+    "react-native": "*"
+  },
+  "keywords": ["expo", "expo-module", "ar", "arkit", "voice-recognition"],
+  "repository": {
+    "type": "git",
+    "url": "local"
+  }
+}

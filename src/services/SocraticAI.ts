@@ -1,4 +1,7 @@
-interface AIResponse {
+import Constants from 'expo-constants';
+
+// React Native compatible version
+export interface AIResponse {
   question: string;
   reasoning: string;
   model: string;
@@ -6,9 +9,14 @@ interface AIResponse {
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
+// Get API key from app config
+const getApiKey = () => {
+  return Constants.expoConfig?.extra?.openRouterApiKey || process.env.REACT_APP_OPENROUTER_KEY || '';
+};
+
 export async function getSocraticResponse(
-  studentInput: string, 
-  currentPhenomena: string, 
+  studentInput: string,
+  currentPhenomena: string,
   observationHistory: string[],
   arInteraction: string,
   language: 'english' | 'spanish' = 'english'
@@ -39,9 +47,9 @@ Question: What happens when many of these angled molecules stack together?
     const response = await fetch(OPENROUTER_API_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.REACT_APP_OPENROUTER_KEY}`,
+        'Authorization': `Bearer ${getApiKey()}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': window.location.origin || 'https://plato-science.app',
+        'HTTP-Referer': 'https://plato-science.app',
         'X-Title': 'Plato Science AR'
       },
       body: JSON.stringify({
@@ -97,7 +105,7 @@ async function tryDeepSeekFallback(
       headers: {
         'Authorization': `Bearer ${process.env.REACT_APP_OPENROUTER_KEY}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': window.location.origin || 'https://plato-science.app',
+        'HTTP-Referer': 'https://plato-science.app',
         'X-Title': 'Plato Science AR'
       },
       body: JSON.stringify({
@@ -146,7 +154,7 @@ export async function analyzeARInteraction(
       headers: {
         'Authorization': `Bearer ${process.env.REACT_APP_OPENROUTER_KEY}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': window.location.origin || 'https://plato-science.app',
+        'HTTP-Referer': 'https://plato-science.app',
         'X-Title': 'Plato Science AR'
       },
       body: JSON.stringify({
