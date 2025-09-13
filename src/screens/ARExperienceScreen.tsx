@@ -48,9 +48,9 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
   // For now, use static URLs - in production these would be served from CDN
   // or bundled with the app
   const modelUrls = {
-    cell: 'https://raw.githubusercontent.com/plato/models/main/cell.usdz',
-    molecule: 'https://raw.githubusercontent.com/plato/models/main/molecule.usdz',
-    volcano: 'https://raw.githubusercontent.com/plato/models/main/volcano.usdz',
+    cell: 'https://developer.apple.com/augmented-reality/quick-look/models/seahorse/seahorse_anim_mtl_variant.usdz',
+    molecule: 'https://developer.apple.com/augmented-reality/quick-look/models/hummingbird/hummingbird_anim.usdz',
+    volcano: 'https://developer.apple.com/augmented-reality/quick-look/models/pancakes/pancakes_photogrammetry.usdz',
   };
 
   const modelUrl = modelUrls[model];
@@ -70,8 +70,20 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
       // Start AR session with selected model
       await PlatoAr.startARSession(modelUrl);
 
+      // WORKAROUND: Direct model loading bypass for view config issue
+      console.log('🎯 WORKAROUND: Calling PlatoAr.loadUSDZModel directly with URL:', modelUrl);
+      const loadResult = PlatoAr.loadUSDZModel(modelUrl);
+      console.log('🎯 WORKAROUND: loadUSDZModel result:', loadResult);
+
+      // Give the model a moment to load, then trigger additional loading mechanisms
+      setTimeout(() => {
+        console.log('🎯 WORKAROUND: Triggering additional AR session after model load');
+        PlatoAr.startARSession(modelUrl);
+      }, 2000);
+
       // Set up event listeners
       const speechListener = PlatoAr.addSpeechListener((event) => {
+        console.log('🎯 SPEECH EVENT RECEIVED:', event);
         setCurrentTranscript(event.transcript);
         if (event.isFinal) {
           handleVoiceInput(event.transcript);
@@ -185,9 +197,16 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
   };
 
   const captureObservation = async () => {
+    console.log('🎯 WORKAROUND: Calling module-level PlatoAr.captureARScreenshot()');
     const screenshot = await PlatoAr.captureARScreenshot();
+    console.log('🎯 WORKAROUND: Screenshot result:', screenshot ? 'SUCCESS - got base64 image' : 'FAILED - null');
+
     if (screenshot) {
       addSystemMessage('Screenshot captured with current observations');
+      console.log('🎯 WORKAROUND: Screenshot length:', screenshot.length, 'characters');
+    } else {
+      addSystemMessage('Screenshot failed - no AR content captured');
+      console.log('🎯 WORKAROUND: Screenshot failed - likely no model loaded yet');
     }
   };
 

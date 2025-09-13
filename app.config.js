@@ -7,10 +7,10 @@ export default {
     icon: "./assets/icon.png",
     autolinking: {
       modules: "./modules",
-      searchPaths: ["node_modules", "./modules"],
-      iosConfiguration: {
-        searchPaths: ["./modules"]
-      }
+      searchPaths: ["node_modules", "./modules"]
+    },
+    experiments: {
+      autolinkingModuleResolution: true
     },
     splash: {
       image: "./assets/splash.png",

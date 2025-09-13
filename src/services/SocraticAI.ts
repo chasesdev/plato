@@ -44,6 +44,9 @@ Question: What happens when many of these angled molecules stack together?
 `;
 
   try {
+    const apiKey = getApiKey();
+    console.log('🔑 QwQ API Key status:', apiKey ? `Present (${apiKey.length} chars)` : 'Missing');
+
     const response = await fetch(OPENROUTER_API_URL, {
       method: 'POST',
       headers: {
@@ -53,7 +56,7 @@ Question: What happens when many of these angled molecules stack together?
         'X-Title': 'Plato Science AR'
       },
       body: JSON.stringify({
-        model: 'qwen/qwq-32b-preview',  // 131K context window
+        model: 'qwen/qwq-32b',  // 131K context window
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: studentInput }
@@ -65,8 +68,23 @@ Question: What happens when many of these angled molecules stack together?
     });
 
     if (!response.ok) {
-      console.error('API Error:', response.status, response.statusText);
-      throw new Error(`API error: ${response.status}`);
+      const errorBody = await response.text();
+      console.error('QwQ-32B API Error Details:');
+      console.error('Status:', response.status, response.statusText);
+      console.error('Headers:', Object.fromEntries(response.headers.entries()));
+      console.error('Body:', errorBody);
+      console.error('Request URL:', OPENROUTER_API_URL);
+      console.error('Request body:', JSON.stringify({
+        model: 'qwen/qwq-32b',
+        messages: [
+          { role: 'system', content: '...' },
+          { role: 'user', content: studentInput }
+        ],
+        max_tokens: 200,
+        temperature: 0.7,
+        top_p: 0.9
+      }, null, 2));
+      throw new Error(`QwQ API error: ${response.status} - ${errorBody}`);
     }
 
     const data = await response.json();
@@ -100,10 +118,13 @@ async function tryDeepSeekFallback(
   language: 'english' | 'spanish'
 ): Promise<AIResponse> {
   try {
+    const apiKey = getApiKey();
+    console.log('🔑 API Key status:', apiKey ? `Present (${apiKey.length} chars)` : 'Missing');
+
     const response = await fetch(OPENROUTER_API_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.REACT_APP_OPENROUTER_KEY}`,
+        'Authorization': `Bearer ${getApiKey()}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://plato-science.app',
         'X-Title': 'Plato Science AR'
@@ -152,7 +173,7 @@ export async function analyzeARInteraction(
     const response = await fetch(OPENROUTER_API_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.REACT_APP_OPENROUTER_KEY}`,
+        'Authorization': `Bearer ${getApiKey()}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://plato-science.app',
         'X-Title': 'Plato Science AR'

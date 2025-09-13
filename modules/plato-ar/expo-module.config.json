@@ -1,5 +1,7 @@
 {
-  "ios": {
+  "platforms": ["apple"],
+  "apple": {
+    "modules": ["PlatoArModule"],
     "infoPlist": {
       "NSCameraUsageDescription": "This app uses the camera for AR experiences",
       "NSMicrophoneUsageDescription": "This app uses the microphone for voice interactions during AR",

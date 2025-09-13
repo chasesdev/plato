@@ -3,7 +3,9 @@
     "allow": [
       "Bash(npm install:*)",
       "Bash(node:*)",
-      "WebSearch"
+      "WebSearch",
+      "WebFetch(domain:shift.infinite.red)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []
