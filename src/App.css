@@ -210,6 +210,31 @@ main {
   max-height: 400px;
 }
 
+/* Model Viewer Styles */
+.model-viewer-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--amplify-white);
+  box-shadow: var(--shadow-md);
+}
+
+model-viewer {
+  width: 100%;
+  height: 100%;
+}
+
+model-viewer::part(default-ar-button) {
+  background: var(--amplify-secondary);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 1.25rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .ar-container-wrapper {
   width: 100%;
   height: 100%;

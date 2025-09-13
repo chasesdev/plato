@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import ARView from './components/ARView';
+import ModelViewer from './components/ModelViewer';
 import VoiceInput from './components/VoiceInput';
 import { getSocraticResponse, type AIResponse } from './services/SocraticAI';
 import './App.css';
@@ -23,6 +24,7 @@ function App() {
   const [showReasoning, setShowReasoning] = useState(true);
   const [loading, setLoading] = useState(false);
   const [lastInteraction, setLastInteraction] = useState('');
+  const [useModelViewer, setUseModelViewer] = useState(true); // Default to model-viewer for better AR support
   const conversationEndRef = useRef<HTMLDivElement>(null);
 
   // Welcome message on mount
@@ -197,10 +199,17 @@ function App() {
 
       <main>
         <div className="ar-section">
-          <ARView 
-            currentModel={currentModel}
-            onInteraction={handleModelInteraction}
-          />
+          {useModelViewer ? (
+            <ModelViewer
+              currentModel={currentModel}
+              onInteraction={handleModelInteraction}
+            />
+          ) : (
+            <ARView
+              currentModel={currentModel}
+              onInteraction={handleModelInteraction}
+            />
+          )}
         </div>
         
         <div className="interaction-section">
