@@ -363,14 +363,19 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
         <PlatoArView
           style={styles.arView}
           modelUrl={modelUrl}
-          onTap={(e) => console.log('Tap:', e.nativeEvent)}
+          onTap={(e) => {
+            console.log('Tap:', e.nativeEvent);
+            dismissKeyboard();
+          }}
           onPinch={(e) => console.log('Pinch:', e.nativeEvent)}
           onRotate={(e) => console.log('Rotate:', e.nativeEvent)}
         />
       ) : (
-        <View style={[styles.arView, styles.loadingContainer]}>
-          <Text style={styles.loadingText}>Loading AR Model...</Text>
-        </View>
+        <TouchableWithoutFeedback onPress={dismissKeyboard}>
+          <View style={[styles.arView, styles.loadingContainer]}>
+            <Text style={styles.loadingText}>Loading AR Model...</Text>
+          </View>
+        </TouchableWithoutFeedback>
       )}
 
 
