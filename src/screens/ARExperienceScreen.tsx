@@ -504,7 +504,17 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
               {textInput.length > 0 && (
                 <TouchableOpacity
                   style={styles.clearButton}
-                  onPress={() => setTextInput('')}
+                  onPress={async () => {
+                    setTextInput('');
+                    // Clear speech recognition buffer by restarting it
+                    if (isListening) {
+                      await stopListening();
+                      // Brief delay to ensure buffer is cleared
+                      setTimeout(() => {
+                        startListening();
+                      }, 150);
+                    }
+                  }}
                 >
                   <Text style={styles.clearButtonText}>✕</Text>
                 </TouchableOpacity>

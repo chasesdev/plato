@@ -136,6 +136,7 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
   private var pendingModelUrl: String?
   private var currentModelEntity: Entity?
   private var currentModelAnchor: AnchorEntity?
+  private var baseModelScale: SIMD3<Float> = SIMD3<Float>(1, 1, 1)
 
   public required init(appContext: AppContext? = nil) {
     print("🏗️ PlatoArView init() called with appContext: \(appContext != nil ? "present" : "nil")")
@@ -347,10 +348,14 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
     print("⏳ No suitable plane detected, checking fallback options...")
     pendingModelUrl = urlString
 
-    // Wait a bit for plane detection, then fall back to fixed positioning
-    DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+    // Wait longer for plane detection, then fall back to fixed positioning
+    DispatchQueue.main.asyncAfter(deadline: .now() + 8.0) {
       if self.pendingModelUrl != nil {
-        print("⚠️ Using fallback positioning - no planes detected")
+        print("⚠️ Using fallback positioning - no suitable planes detected after 8 seconds")
+        print("🔍 Debug: Total planes detected: \(self.detectedPlanes.count)")
+        for (id, plane) in self.detectedPlanes {
+          print("🔍 Debug: Plane \(id): extent \(plane.extent.x) x \(plane.extent.z)")
+        }
         self.loadModelWithFallbackPositioning(from: urlString)
         self.pendingModelUrl = nil
       }
@@ -365,10 +370,11 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
     }
 
     print("🔄 Using fallback fixed positioning")
+    print("🔍 FALLBACK MODE: Model will be positioned 1.5m in front of user")
 
     // Get model-specific settings but with more conservative distances for fallback
-    let (baseDistance, yOffset, scale) = getModelSpecificSettings(from: urlString)
-    let fallbackDistance = baseDistance * 1.2  // 20% further away for safety
+    let (baseDistance, yOffset, scale, rotationY) = getModelSpecificSettings(from: urlString)
+    let fallbackDistance = baseDistance - 1.5  // Move 1.5m in front of user
 
     // Create anchor with improved positioning
     let anchor = AnchorEntity(world: SIMD3<Float>(0, yOffset, fallbackDistance))
@@ -391,12 +397,19 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
           print("✅ Model entity created successfully")
           print("📏 Original model scale: \(entity.scale)")
 
-          // Apply model-specific scale for fallback positioning
-          entity.scale = SIMD3<Float>(scale, scale, scale)
+          // Apply model-specific scale and rotation for fallback positioning
+          let modelScale = SIMD3<Float>(scale, scale, scale)
+          entity.scale = modelScale
+
+          // Apply rotation fix if needed
+          if rotationY != 0.0 {
+            entity.transform.rotation = simd_quatf(angle: rotationY, axis: [0, 1, 0])
+          }
 
           // Track the current model for controls
           self.currentModelEntity = entity
           self.currentModelAnchor = anchor
+          self.baseModelScale = modelScale
 
           anchor.addChild(entity)
           arView.scene.addAnchor(anchor)
@@ -495,10 +508,13 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
       return
     }
 
-    // Apply relative scaling
-    let newScale = entity.scale * scale
+    // Clamp scale to reasonable bounds (0.5x to 3.0x)
+    let clampedScale = max(0.5, min(3.0, scale))
+
+    // Apply absolute scaling relative to base scale
+    let newScale = baseModelScale * clampedScale
     entity.scale = newScale
-    print("✅ Model scaled to: \(newScale)")
+    print("✅ Model scaled to: \(newScale) (scale factor: \(clampedScale))")
   }
 
   private func rotateCurrentModel(by rotation: Float) {
@@ -522,13 +538,18 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
     for anchor in anchors {
       if let planeAnchor = anchor as? ARPlaneAnchor {
         print("✈️ Detected plane: \(planeAnchor.identifier) with extent: \(planeAnchor.extent)")
+        print("🔍 Plane details - Center: \(planeAnchor.center), Transform: \(planeAnchor.transform)")
+        print("🔍 Plane suitable for model: \(shouldUsePlaneForModel(planeAnchor))")
         detectedPlanes[planeAnchor.identifier] = planeAnchor
 
         // If we have a pending model to load, try to place it on the first suitable plane
         if let modelUrl = pendingModelUrl, shouldUsePlaneForModel(planeAnchor) {
           print("🎯 Using newly detected plane for model placement")
+          print("🎯 Selected plane extent: \(planeAnchor.extent.x) x \(planeAnchor.extent.z)")
           loadModelOnPlane(from: modelUrl, on: planeAnchor)
           pendingModelUrl = nil
+        } else if pendingModelUrl != nil {
+          print("⏳ Plane detected but not suitable, continuing to wait...")
         }
       }
     }
@@ -608,9 +629,10 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
     }
 
     print("🔄 Loading model on detected plane: \(planeAnchor.identifier)")
+    print("🎯 PLANE MODE: Model will be positioned on detected plane")
 
     // Determine model-specific positioning based on URL
-    let (distance, yOffset, scale) = getModelSpecificSettings(from: urlString)
+    let (distance, yOffset, scale, rotationY) = getModelSpecificSettings(from: urlString)
 
     // Calculate position relative to plane center
     let planePosition = SIMD3<Float>(
@@ -645,12 +667,19 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
           print("📍 Plane position: \(planePosition)")
           print("📍 Model position: \(modelPosition)")
 
-          // Apply model-specific scale
-          entity.scale = SIMD3<Float>(scale, scale, scale)
+          // Apply model-specific scale and rotation
+          let modelScale = SIMD3<Float>(scale, scale, scale)
+          entity.scale = modelScale
+
+          // Apply rotation fix if needed
+          if rotationY != 0.0 {
+            entity.transform.rotation = simd_quatf(angle: rotationY, axis: [0, 1, 0])
+          }
 
           // Track the current model for controls
           self.currentModelEntity = entity
           self.currentModelAnchor = anchor
+          self.baseModelScale = modelScale
 
           anchor.addChild(entity)
           arView.scene.addAnchor(anchor)
@@ -665,19 +694,19 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
       .store(in: &cancellables)
   }
 
-  private func getModelSpecificSettings(from urlString: String) -> (distance: Float, yOffset: Float, scale: Float) {
+  private func getModelSpecificSettings(from urlString: String) -> (distance: Float, yOffset: Float, scale: Float, rotationY: Float) {
     if urlString.contains("volcano") {
-      // Volcano: Large model, needs more distance and smaller scale
-      return (distance: -5.0, yOffset: 0.0, scale: 0.05)
+      // Volcano: Large model, positioned in front of user on plane, fix upside-down
+      return (distance: 0.0, yOffset: 0.3, scale: 0.1, rotationY: Float.pi)
     } else if urlString.contains("cell") {
-      // Cell: Medium size, moderate distance
-      return (distance: -3.5, yOffset: 0.1, scale: 0.08)
+      // Cell: Medium size, centered on plane
+      return (distance: 0.0, yOffset: 0.25, scale: 0.15, rotationY: 0.0)
     } else if urlString.contains("molecule") {
-      // Molecule: Small model, closer viewing, larger relative scale
-      return (distance: -2.0, yOffset: 0.2, scale: 0.15)
+      // Molecule: Small model, close viewing on plane
+      return (distance: 0.0, yOffset: 0.2, scale: 0.25, rotationY: 0.0)
     } else {
       // Default fallback
-      return (distance: -3.0, yOffset: 0.1, scale: 0.1)
+      return (distance: 0.0, yOffset: 0.2, scale: 0.15, rotationY: 0.0)
     }
   }
 }
