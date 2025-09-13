@@ -46,14 +46,16 @@
     <div id="canvas"></div>
 
     <div>
-        <button onclick="exportModel('cell')">Export Cell Model</button>
-        <button onclick="exportModel('molecule')">Export Molecule Model</button>
-        <button onclick="exportModel('volcano')">Export Volcano Model</button>
+        <button id="export-cell">Export Cell Model</button>
+        <button id="export-molecule">Export Molecule Model</button>
+        <button id="export-volcano">Export Volcano Model</button>
     </div>
 
     <div class="status" id="status">Ready to export models...</div>
 
     <script type="module">
+        // Make exportModel available globally
+        window.exportModel = null;
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js';
         import { GLTFExporter } from 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/exporters/GLTFExporter.js';
 
@@ -250,7 +252,7 @@
         animate();
 
         // Export function
-        window.exportModel = function(modelType) {
+        function exportModel(modelType) {
             const status = document.getElementById('status');
             status.textContent = `Creating ${modelType} model...`;
 
@@ -294,7 +296,12 @@
                 },
                 { binary: true }
             );
-        };
+        }
+
+        // Add event listeners to buttons
+        document.getElementById('export-cell').addEventListener('click', () => exportModel('cell'));
+        document.getElementById('export-molecule').addEventListener('click', () => exportModel('molecule'));
+        document.getElementById('export-volcano').addEventListener('click', () => exportModel('volcano'));
     </script>
 </body>
 </html>
