@@ -378,6 +378,9 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
         </TouchableWithoutFeedback>
       )}
 
+      <View style={styles.debugContainer}>
+        <DebugLogger visible={true} />
+      </View>
 
       <View style={styles.floatingControls}>
         <TouchableOpacity
@@ -414,14 +417,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
               : `${observations.length} observaciones`}
           </Text>
         </View>
-
-        <View style={styles.statusBadge}>
-          <Text style={styles.statusBadgeText}>
-            PlatoAR View Active
-          </Text>
-        </View>
-
-        <DebugLogger visible={true} />
 
       </View>
 
@@ -544,6 +539,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
+  debugContainer: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    zIndex: 1000,
+  },
   floatingControls: {
     position: 'absolute',
     top: 50,
@@ -644,18 +645,6 @@ const styles = StyleSheet.create({
   observationText: {
     color: 'white',
     fontSize: 12,
-    fontWeight: '600',
-  },
-  statusBadge: {
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  statusBadgeText: {
-    color: '#4CAF50',
-    fontSize: 14,
     fontWeight: '600',
   },
   inputContainer: {
