@@ -321,7 +321,7 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
   }
 
   func loadModel(from urlString: String) {
-    guard let arView = arView else {
+    guard arView != nil else {
       print("🔴 Cannot load model: AR view not ready")
       module?.sendEvent(EVENT_AR_ERROR, ["error": "AR view not ready"])
       return
@@ -508,8 +508,9 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
     }
 
     // Apply rotation around Y axis (vertical rotation)
-    let rotationTransform = Transform(pitch: 0, yaw: rotation, roll: 0)
-    entity.transform = entity.transform * rotationTransform
+    let currentRotation = entity.transform.rotation
+    let additionalRotation = simd_quatf(angle: rotation, axis: [0, 1, 0])
+    entity.transform.rotation = currentRotation * additionalRotation
     print("✅ Model rotated by: \(rotation) radians")
   }
 
