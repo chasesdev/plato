@@ -386,9 +386,6 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
         </TouchableWithoutFeedback>
       )}
 
-      <View style={styles.debugContainer}>
-        <DebugLogger visible={true} />
-      </View>
 
       <View style={styles.floatingControls}>
         <TouchableOpacity
@@ -507,9 +504,10 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
                   onPress={async () => {
                     setTextInput('');
                     if (isListening) {
-                      // Abort current recognition (clears internal buffer instantly)
+                      // Clear the buffer
                       await ExpoSpeechRecognitionModule.abort();
-                      // Recognition session continues, but buffer is cleared
+                      // Immediately restart to maintain continuous listening
+                      startListening();
                     }
                   }}
                 >
