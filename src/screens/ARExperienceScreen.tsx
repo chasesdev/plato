@@ -11,6 +11,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PlatoAr, PlatoArView } from '../../modules/plato-ar';
@@ -301,6 +303,10 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
     }, 30000);
   };
 
+  const dismissKeyboard = () => {
+    Keyboard.dismiss();
+  };
+
   const captureObservation = async () => {
     console.log('🎯 WORKAROUND: Calling module-level PlatoAr.captureARScreenshot()');
     const screenshot = await PlatoAr.captureARScreenshot();
@@ -419,11 +425,14 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.conversationPanel}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 0}
         >
           <ScrollView
             ref={scrollViewRef}
             style={styles.conversationScroll}
             contentContainerStyle={styles.conversationContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
           >
             {conversation.map((entry, index) => (
               <View
@@ -482,6 +491,7 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
                   }
                 }}
                 returnKeyType="send"
+                blurOnSubmit={true}
               />
               {textInput.length > 0 && (
                 <TouchableOpacity
@@ -559,10 +569,11 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 300,
+    maxHeight: 400,
     backgroundColor: 'rgba(248, 249, 250, 0.95)',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    flex: 1,
   },
   conversationScroll: {
     flex: 1,
@@ -648,6 +659,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
+    paddingBottom: Platform.OS === 'ios' ? 20 : 10,
   },
   textInputWrapper: {
     flex: 1,
