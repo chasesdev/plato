@@ -110,6 +110,8 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
   private var arView: ARView?
   private var isARSessionRunning = false
   private weak var module: PlatoArModule?
+  private var detectedPlanes: [UUID: ARPlaneAnchor] = [:]
+  private var pendingModelUrl: String?
 
   public required init(appContext: AppContext? = nil) {
     print("🏗️ PlatoArView init() called with appContext: \(appContext != nil ? "present" : "nil")")
@@ -248,11 +250,14 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
       configuration.frameSemantics.insert(.personSegmentationWithDepth)
     }
 
+    // Set delegate to receive plane updates
+    arView.session.delegate = self
+
     // Start AR session with proper options
     arView.session.run(configuration, options: [.resetTracking, .removeExistingAnchors])
     isARSessionRunning = true
 
-    print("AR Session started successfully")
+    print("AR Session started successfully with plane detection")
   }
 
   private func stopARSession() {
@@ -275,8 +280,42 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
     print("🔄 Starting to load USDZ model from: \(urlString)")
     print("🔄 AR view ready: true, AR session running: \(isARSessionRunning)")
 
-    // Create anchor directly in world space (no plane detection needed)
-    let anchor = AnchorEntity(world: SIMD3<Float>(0, 0, -1.0))
+    // Try to use detected plane first
+    if let suitablePlane = findSuitablePlane() {
+      print("🎯 Using detected plane for model placement")
+      loadModelOnPlane(from: urlString, on: suitablePlane)
+      return
+    }
+
+    // No suitable plane detected yet - store for later or use fallback
+    print("⏳ No suitable plane detected, checking fallback options...")
+    pendingModelUrl = urlString
+
+    // Wait a bit for plane detection, then fall back to fixed positioning
+    DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+      if self.pendingModelUrl != nil {
+        print("⚠️ Using fallback positioning - no planes detected")
+        self.loadModelWithFallbackPositioning(from: urlString)
+        self.pendingModelUrl = nil
+      }
+    }
+  }
+
+  private func loadModelWithFallbackPositioning(from urlString: String) {
+    guard let arView = arView,
+          let url = URL(string: urlString) else {
+      print("🔴 Cannot load model with fallback: AR view not ready or invalid URL")
+      return
+    }
+
+    print("🔄 Using fallback fixed positioning")
+
+    // Get model-specific settings but with more conservative distances for fallback
+    let (baseDistance, yOffset, scale) = getModelSpecificSettings(from: urlString)
+    let fallbackDistance = baseDistance * 1.2  // 20% further away for safety
+
+    // Create anchor with improved positioning
+    let anchor = AnchorEntity(world: SIMD3<Float>(0, yOffset, fallbackDistance))
 
     // Load USDZ model asynchronously
     Entity.loadModelAsync(contentsOf: url)
@@ -296,8 +335,8 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
           print("✅ Model entity created successfully")
           print("📏 Original model scale: \(entity.scale)")
 
-          // Scale up the model for better visibility
-          entity.scale = SIMD3<Float>(0.5, 0.5, 0.5) // Increased scale from 0.1 to 0.5
+          // Apply model-specific scale for fallback positioning
+          entity.scale = SIMD3<Float>(scale, scale, scale)
 
           anchor.addChild(entity)
           arView.scene.addAnchor(anchor)
@@ -392,14 +431,38 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
 
   public func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
     print("AR Session: Added \(anchors.count) anchors")
+
+    for anchor in anchors {
+      if let planeAnchor = anchor as? ARPlaneAnchor {
+        print("✈️ Detected plane: \(planeAnchor.identifier) with extent: \(planeAnchor.extent)")
+        detectedPlanes[planeAnchor.identifier] = planeAnchor
+
+        // If we have a pending model to load, try to place it on the first suitable plane
+        if let modelUrl = pendingModelUrl, shouldUsePlaneForModel(planeAnchor) {
+          print("🎯 Using newly detected plane for model placement")
+          loadModelOnPlane(from: modelUrl, on: planeAnchor)
+          pendingModelUrl = nil
+        }
+      }
+    }
   }
 
   public func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
-    print("AR Session: Updated \(anchors.count) anchors")
+    for anchor in anchors {
+      if let planeAnchor = anchor as? ARPlaneAnchor {
+        print("✈️ Updated plane: \(planeAnchor.identifier) with extent: \(planeAnchor.extent)")
+        detectedPlanes[planeAnchor.identifier] = planeAnchor
+      }
+    }
   }
 
   public func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
-    print("AR Session: Removed \(anchors.count) anchors")
+    for anchor in anchors {
+      if let planeAnchor = anchor as? ARPlaneAnchor {
+        print("✈️ Removed plane: \(planeAnchor.identifier)")
+        detectedPlanes.removeValue(forKey: planeAnchor.identifier)
+      }
+    }
   }
 
   public func session(_ session: ARSession, didFailWithError error: Error) {
@@ -432,6 +495,94 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
       print("AR tracking is not available")
     case .limited(let reason):
       print("AR tracking is limited: \(reason)")
+    }
+  }
+
+  // MARK: - Plane-based Model Placement
+
+  private func findSuitablePlane() -> ARPlaneAnchor? {
+    // Find the largest suitable plane for model placement
+    return detectedPlanes.values
+      .filter { shouldUsePlaneForModel($0) }
+      .max { $0.extent.x * $0.extent.z < $1.extent.x * $1.extent.z }
+  }
+
+  private func shouldUsePlaneForModel(_ planeAnchor: ARPlaneAnchor) -> Bool {
+    // Use planes that are reasonably sized (at least 0.3m x 0.3m)
+    let minExtent: Float = 0.3
+    return planeAnchor.extent.x >= minExtent && planeAnchor.extent.z >= minExtent
+  }
+
+  private func loadModelOnPlane(from urlString: String, on planeAnchor: ARPlaneAnchor) {
+    guard let arView = arView,
+          let url = URL(string: urlString) else {
+      print("🔴 Cannot load model on plane: AR view not ready or invalid URL: \(urlString)")
+      return
+    }
+
+    print("🔄 Loading model on detected plane: \(planeAnchor.identifier)")
+
+    // Determine model-specific positioning based on URL
+    let (distance, yOffset, scale) = getModelSpecificSettings(from: urlString)
+
+    // Calculate position relative to plane center
+    let planePosition = planeAnchor.transform.translation
+    let modelPosition = SIMD3<Float>(
+      planePosition.x,
+      planePosition.y + yOffset, // Slightly above the plane
+      planePosition.z + distance // Move away from user
+    )
+
+    // Create anchor at calculated position
+    let anchor = AnchorEntity(world: modelPosition)
+
+    // Load USDZ model asynchronously
+    Entity.loadModelAsync(contentsOf: url)
+      .sink(receiveCompletion: { completion in
+        DispatchQueue.main.async {
+          switch completion {
+          case .finished:
+            print("✅ Model loading stream completed successfully on plane")
+          case .failure(let error):
+            print("🔴 Failed to load model on plane: \(error.localizedDescription)")
+          }
+        }
+      }, receiveValue: { entity in
+        DispatchQueue.main.async {
+          print("✅ Model entity created successfully on plane")
+          print("📏 Original model scale: \(entity.scale)")
+          print("📍 Plane position: \(planePosition)")
+          print("📍 Model position: \(modelPosition)")
+
+          // Apply model-specific scale
+          entity.scale = SIMD3<Float>(scale, scale, scale)
+
+          anchor.addChild(entity)
+          arView.scene.addAnchor(anchor)
+
+          print("✅ Model added to AR scene on detected plane")
+          print("🎯 Total anchors in scene: \(arView.scene.anchors.count)")
+
+          // Notify JavaScript that model loaded successfully
+          self.module?.sendEvent(EVENT_AR_SESSION_STARTED, ["modelLoaded": true, "usedPlane": true])
+        }
+      })
+      .store(in: &cancellables)
+  }
+
+  private func getModelSpecificSettings(from urlString: String) -> (distance: Float, yOffset: Float, scale: Float) {
+    if urlString.contains("volcano") {
+      // Volcano: Large model, needs more distance and smaller scale
+      return (distance: -5.0, yOffset: 0.0, scale: 0.05)
+    } else if urlString.contains("cell") {
+      // Cell: Medium size, moderate distance
+      return (distance: -3.5, yOffset: 0.1, scale: 0.08)
+    } else if urlString.contains("molecule") {
+      // Molecule: Small model, closer viewing, larger relative scale
+      return (distance: -2.0, yOffset: 0.2, scale: 0.15)
+    } else {
+      // Default fallback
+      return (distance: -3.0, yOffset: 0.1, scale: 0.1)
     }
   }
 }

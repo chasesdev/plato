@@ -20,7 +20,7 @@ import { Asset } from 'expo-asset';
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
-} from '@jamsch/expo-speech-recognition';
+} from 'expo-speech-recognition';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 

@@ -6,7 +6,6 @@
   "types": "src/index.ts",
   "peerDependencies": {
     "expo": "^54.0.0",
-    "expo-modules-core": "^3.0.0",
     "react": "*",
     "react-native": "*"
   },

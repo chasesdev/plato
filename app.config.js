@@ -23,7 +23,7 @@ export default {
       "expo-asset",
       "./modules/plato-ar/expo-plugin.js",
       [
-        "@jamsch/expo-speech-recognition",
+        "expo-speech-recognition",
         {
           speechRecognitionPermission: "This app uses speech recognition to understand your observations during AR experiences",
           recordAudioAndroid: {
