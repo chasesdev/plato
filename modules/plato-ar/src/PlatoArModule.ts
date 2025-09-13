@@ -46,5 +46,9 @@ export default PlatoArModule || {
   captureARScreenshot(): Promise<string | null> {
     console.warn('❌ UNEXPECTED: Using fallback captureARScreenshot despite native module being found');
     return Promise.resolve(null);
+  },
+  testEventSystem(): Promise<boolean> {
+    console.warn('❌ UNEXPECTED: Using fallback testEventSystem despite native module being found');
+    return Promise.resolve(false);
   }
 };

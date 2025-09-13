@@ -3,7 +3,7 @@ require 'json'
 package = JSON.parse(File.read(File.join(__dir__, '..', 'package.json')))
 
 Pod::Spec.new do |s|
-  s.name           = 'PlatoAr'
+  s.name           = 'plato-ar'
   s.version        = package['version']
   s.summary        = package['description']
   s.description    = 'Plato AR module with ARKit and voice integration for immersive learning experiences'
@@ -19,7 +19,9 @@ Pod::Spec.new do |s|
   # Expo modules require Swift 5.0
   s.swift_version    = '5.0'
 
-  # Always use source files for local development
-  s.source_files = "**/*.{h,m,mm,swift}"
-  s.public_header_files = "**/*.h"
+  # Use standard CocoaPods directory structure
+  s.source_files = [
+    "Classes/**/*.{h,m,mm,swift}",
+    "*.{h,m,mm}"
+  ]
 end

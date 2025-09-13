@@ -1,10 +1,6 @@
 import { NativeModulesProxy, EventEmitter } from 'expo-modules-core';
 import PlatoArModule from './PlatoArModule';
 
-export interface SpeechEvent {
-  transcript: string;
-  isFinal: boolean;
-}
 
 export interface ModelInteractionEvent {
   type: 'tap' | 'pinch' | 'rotation';
@@ -22,13 +18,31 @@ export interface ARErrorEvent {
 }
 
 class PlatoAr {
-  private eventEmitter: EventEmitter;
+  private eventEmitter: any;
 
   constructor() {
-    console.log('🏗️ Initializing PlatoAr with module:', PlatoArModule);
-    console.log('🏗️ Module functions available:', PlatoArModule ? Object.keys(PlatoArModule) : 'NO MODULE');
-    this.eventEmitter = new EventEmitter(PlatoArModule);
-    console.log('🏗️ EventEmitter created:', !!this.eventEmitter);
+    console.log('🏗️ SETUP: Initializing PlatoAr with module:', PlatoArModule);
+    console.log('🏗️ SETUP: Module functions available:', PlatoArModule ? Object.keys(PlatoArModule) : 'NO MODULE');
+    console.log('🏗️ SETUP: Module type:', typeof PlatoArModule);
+    console.log('🏗️ SETUP: Module instance:', PlatoArModule);
+
+    // Check if module has expected functions
+    const expectedFunctions = ['startARSession', 'loadUSDZModel', 'captureARScreenshot'];
+    expectedFunctions.forEach(func => {
+      console.log(`🏗️ SETUP: ${func} available:`, typeof PlatoArModule?.[func] === 'function');
+    });
+
+    // Try different EventEmitter creation approaches
+    try {
+      console.log('🏗️ SETUP: Creating EventEmitter with native module...');
+      this.eventEmitter = new EventEmitter(PlatoArModule);
+      console.log('🏗️ SETUP: EventEmitter created successfully:', !!this.eventEmitter);
+      console.log('🏗️ SETUP: EventEmitter methods:', Object.keys(this.eventEmitter));
+
+    } catch (error) {
+      console.log('🏗️ SETUP: Error creating EventEmitter:', error);
+      throw error;
+    }
   }
 
   async startARSession(modelPath: string): Promise<boolean> {
@@ -38,17 +52,6 @@ class PlatoAr {
     return result;
   }
 
-  async startVoiceRecognition(): Promise<boolean> {
-    console.log('🎤 Calling native startVoiceRecognition');
-    const result = await PlatoArModule.startVoiceRecognition();
-    console.log('✅ startVoiceRecognition result:', result);
-    return result;
-  }
-
-  stopVoiceRecognition(): void {
-    console.log('🛑 Calling native stopVoiceRecognition');
-    PlatoArModule.stopVoiceRecognition();
-  }
 
   loadUSDZModel(modelPath: string): boolean {
     console.log('📦 Calling native loadUSDZModel with:', modelPath);
@@ -64,21 +67,11 @@ class PlatoAr {
     return result;
   }
 
-  // Event listeners with debug logging
-  addSpeechListener(listener: (event: SpeechEvent) => void) {
-    console.log('📝 Adding speech listener for onSpeechDetected');
-    console.log('📝 EventEmitter available events:', this.eventEmitter.listenerCount);
 
-    return this.eventEmitter.addListener('onSpeechDetected', (event) => {
-      console.log('🎤 Speech event received:', event);
-      console.log('🎤 Event details - transcript:', event?.transcript, 'isFinal:', event?.isFinal);
-      listener(event);
-    });
-  }
 
   addModelInteractionListener(listener: (event: ModelInteractionEvent) => void) {
     console.log('📝 Adding model interaction listener');
-    return this.eventEmitter.addListener('onModelInteraction', (event) => {
+    return this.eventEmitter.addListener('modelInteraction', (event) => {
       console.log('👆 Model interaction event received:', event);
       listener(event);
     });
@@ -86,7 +79,7 @@ class PlatoAr {
 
   addARSessionListener(listener: (event: ARSessionEvent) => void) {
     console.log('📝 Adding AR session listener');
-    return this.eventEmitter.addListener('onARSessionStarted', (event) => {
+    return this.eventEmitter.addListener('arSessionStarted', (event) => {
       console.log('🎯 AR session event received:', event);
       listener(event);
     });
@@ -94,17 +87,16 @@ class PlatoAr {
 
   addARErrorListener(listener: (event: ARErrorEvent) => void) {
     console.log('📝 Adding AR error listener');
-    return this.eventEmitter.addListener('onARError', (event) => {
+    return this.eventEmitter.addListener('arError', (event) => {
       console.log('❌ AR error event received:', event);
       listener(event);
     });
   }
 
   removeAllListeners() {
-    this.eventEmitter.removeAllListeners('onSpeechDetected');
-    this.eventEmitter.removeAllListeners('onModelInteraction');
-    this.eventEmitter.removeAllListeners('onARSessionStarted');
-    this.eventEmitter.removeAllListeners('onARError');
+    this.eventEmitter.removeAllListeners('modelInteraction');
+    this.eventEmitter.removeAllListeners('arSessionStarted');
+    this.eventEmitter.removeAllListeners('arError');
   }
 }
 

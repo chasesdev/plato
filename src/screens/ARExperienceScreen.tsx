@@ -17,6 +17,10 @@ import { getSocraticResponse, AIResponse } from '../services/SocraticAI';
 import DebugLogger, { debugLog } from '../components/DebugLogger';
 import * as Speech from 'expo-speech';
 import { Asset } from 'expo-asset';
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from '@jamsch/expo-speech-recognition';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -44,17 +48,53 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [showConversation, setShowConversation] = useState(true);
   const [textInput, setTextInput] = useState('');
+  const [modelUrl, setModelUrl] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // For now, use static URLs - in production these would be served from CDN
-  // or bundled with the app
-  const modelUrls = {
-    cell: 'https://developer.apple.com/augmented-reality/quick-look/models/seahorse/seahorse_anim_mtl_variant.usdz',
-    molecule: 'https://developer.apple.com/augmented-reality/quick-look/models/hummingbird/hummingbird_anim.usdz',
-    volcano: 'https://developer.apple.com/augmented-reality/quick-look/models/pancakes/pancakes_photogrammetry.usdz',
-  };
+  // Speech recognition event listener
+  useSpeechRecognitionEvent('result', (event) => {
+    debugLog.addLog('info', 'Speech', `🗣️ Speech result: "${event.results[0]?.transcript}" (${event.isFinal ? 'FINAL' : 'partial'})`);
+    setCurrentTranscript(event.results[0]?.transcript || '');
+    if (event.isFinal && event.results[0]?.transcript) {
+      debugLog.addLog('success', 'Speech', `✅ Final speech: "${event.results[0].transcript}"`);
+      handleVoiceInput(event.results[0].transcript);
+      setCurrentTranscript('');
+    }
+  });
 
-  const modelUrl = modelUrls[model];
+  useSpeechRecognitionEvent('error', (event) => {
+    debugLog.addLog('error', 'Speech', `❌ Speech error: ${event.error}`);
+    setIsListening(false);
+  });
+
+  useSpeechRecognitionEvent('end', () => {
+    debugLog.addLog('info', 'Speech', '🛑 Speech recognition ended');
+    setIsListening(false);
+  });
+
+  // Load local USDZ model files bundled with the app
+  useEffect(() => {
+    const loadModelAsset = async () => {
+      try {
+        const modelAssets = {
+          cell: require('../../assets/models/cell.usdz'),
+          molecule: require('../../assets/models/molecule.usdz'),
+          volcano: require('../../assets/models/volcano.usdz'),
+        };
+
+        const asset = Asset.fromModule(modelAssets[model]);
+        await asset.downloadAsync();
+
+        debugLog.addLog('info', 'Asset', `📦 Model asset loaded: ${asset.localUri}`);
+        setModelUrl(asset.localUri);
+      } catch (error) {
+        debugLog.addLog('error', 'Asset', `❌ Failed to load model asset: ${error}`);
+        console.error('Failed to load model asset:', error);
+      }
+    };
+
+    loadModelAsset();
+  }, [model]);
 
   useEffect(() => {
     if (modelUrl) {
@@ -62,7 +102,10 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
     }
     return () => {
       PlatoAr.removeAllListeners();
-      PlatoAr.stopVoiceRecognition();
+      // Stop speech recognition using expo-speech-recognition
+      if (isListening) {
+        ExpoSpeechRecognitionModule.stop();
+      }
     };
   }, [modelUrl]);
 
@@ -71,32 +114,29 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
       debugLog.addLog('info', 'AR', `🚀 Initializing AR with model: ${modelUrl}`);
 
       // Start AR session with selected model
-      debugLog.addLog('info', 'AR', '📱 Calling startARSession...');
-      const sessionResult = await PlatoAr.startARSession(modelUrl);
-      debugLog.addLog(sessionResult ? 'success' : 'error', 'AR', `startARSession result: ${sessionResult}`);
+      if (modelUrl) {
+        debugLog.addLog('info', 'AR', '📱 Calling startARSession...');
+        const sessionResult = await PlatoAr.startARSession(modelUrl);
+        debugLog.addLog(sessionResult ? 'success' : 'error', 'AR', `startARSession result: ${sessionResult}`);
 
-      // WORKAROUND: Direct model loading bypass for view config issue
-      debugLog.addLog('info', 'AR', '📦 Calling loadUSDZModel directly...');
-      console.log('🎯 WORKAROUND: Calling PlatoAr.loadUSDZModel directly with URL:', modelUrl);
-      const loadResult = PlatoAr.loadUSDZModel(modelUrl);
-      console.log('🎯 WORKAROUND: loadUSDZModel result:', loadResult);
-      debugLog.addLog(loadResult ? 'success' : 'error', 'AR', `loadUSDZModel result: ${loadResult}`);
+        // WORKAROUND: Direct model loading bypass for view config issue
+        debugLog.addLog('info', 'AR', '📦 Calling loadUSDZModel directly...');
+        console.log('🎯 WORKAROUND: Calling PlatoAr.loadUSDZModel directly with URL:', modelUrl);
+        const loadResult = PlatoAr.loadUSDZModel(modelUrl);
+        console.log('🎯 WORKAROUND: loadUSDZModel result:', loadResult);
+        debugLog.addLog(loadResult ? 'success' : 'error', 'AR', `loadUSDZModel result: ${loadResult ? 'SUCCESS' : 'FAILED'}`);
 
-      // Give the model a moment to load, then trigger additional loading mechanisms
-      setTimeout(() => {
-        console.log('🎯 WORKAROUND: Triggering additional AR session after model load');
-        PlatoAr.startARSession(modelUrl);
-      }, 2000);
+        // Give the model a moment to load, then trigger additional loading mechanisms
+        setTimeout(() => {
+          console.log('🎯 WORKAROUND: Triggering additional AR session after model load');
+          if (modelUrl) {
+            PlatoAr.startARSession(modelUrl);
+          }
+        }, 2000);
+      }
 
-      // Set up event listeners
-      const speechListener = PlatoAr.addSpeechListener((event) => {
-        console.log('🎯 SPEECH EVENT RECEIVED:', event);
-        setCurrentTranscript(event.transcript);
-        if (event.isFinal) {
-          handleVoiceInput(event.transcript);
-          setCurrentTranscript('');
-        }
-      });
+      // Set up AR event listeners (speech now handled by hooks above)
+      debugLog.addLog('info', 'AR', '🔧 Setting up AR event listeners...');
 
       const interactionListener = PlatoAr.addModelInteractionListener((event) => {
         const interaction = `${event.type} on ${event.entityName || 'model'}`;
@@ -105,6 +145,13 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
 
       const errorListener = PlatoAr.addARErrorListener((event) => {
         Alert.alert('AR Error', event.error);
+      });
+
+      const sessionListener = PlatoAr.addARSessionListener((event) => {
+        debugLog.addLog('success', 'AR', `🎯 AR Session: modelLoaded=${event.modelLoaded}`);
+        if (event.modelLoaded) {
+          addSystemMessage('3D model loaded successfully! Look around to find it.');
+        }
       });
 
       // Start voice recognition automatically
@@ -118,9 +165,9 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
       );
 
       return () => {
-        speechListener.remove();
         interactionListener.remove();
         errorListener.remove();
+        sessionListener.remove();
       };
     } catch (error) {
       Alert.alert('Error', 'Failed to initialize AR session');
@@ -131,23 +178,53 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
   const startListening = async () => {
     try {
       debugLog.addLog('info', 'Voice', '🎤 Starting voice recognition...');
-      await PlatoAr.startVoiceRecognition();
+
+      // Request permissions first
+      const { status } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (status !== 'granted') {
+        debugLog.addLog('error', 'Voice', '❌ Microphone permission denied');
+        Alert.alert(
+          'Permission Required',
+          'Please enable microphone access in Settings > Privacy & Security > Microphone'
+        );
+        return;
+      }
+
+      // Start speech recognition with iOS audio session optimized for AR compatibility
+      await ExpoSpeechRecognitionModule.start({
+        lang: language === 'spanish' ? 'es-ES' : 'en-US',
+        interimResults: true,
+        maxAlternatives: 1,
+        continuous: true,
+        iosCategory: {
+          category: 'playAndRecord', // Required for both AR and speech recognition
+          categoryOptions: ['defaultToSpeaker', 'allowBluetooth', 'mixWithOthers'], // mixWithOthers should help with AR
+          mode: 'measurement' // Best for speech recognition accuracy
+        }
+      });
+
       setIsListening(true);
-      debugLog.addLog('success', 'Voice', '✅ Voice recognition started');
+      debugLog.addLog('success', 'Voice', '✅ Voice recognition started with expo-speech-recognition');
+      addSystemMessage('🎤 Voice recognition is active. Try saying something!');
     } catch (error) {
       debugLog.addLog('error', 'Voice', `❌ Voice recognition failed: ${error}`);
       Alert.alert(
         'Permission Required',
-        'Please enable microphone access to use voice input'
+        'Please enable microphone access in Settings > Privacy & Security > Microphone'
       );
     }
   };
 
-  const stopListening = () => {
-    debugLog.addLog('info', 'Voice', '🛑 Stopping voice recognition...');
-    PlatoAr.stopVoiceRecognition();
-    setIsListening(false);
-    debugLog.addLog('info', 'Voice', '✅ Voice recognition stopped');
+  const stopListening = async () => {
+    try {
+      debugLog.addLog('info', 'Voice', '🛑 Stopping voice recognition...');
+      await ExpoSpeechRecognitionModule.stop();
+      setIsListening(false);
+      debugLog.addLog('info', 'Voice', '✅ Voice recognition stopped');
+    } catch (error) {
+      debugLog.addLog('error', 'Voice', `❌ Error stopping voice recognition: ${error}`);
+      setIsListening(false);
+    }
   };
 
   const handleVoiceInput = async (input: string) => {
@@ -225,13 +302,19 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
   return (
     <SafeAreaView style={styles.container}>
       {/* AR View */}
-      <PlatoArView
-        style={styles.arView}
-        modelUrl={modelUrl}
-        onTap={(e) => console.log('Tap:', e.nativeEvent)}
-        onPinch={(e) => console.log('Pinch:', e.nativeEvent)}
-        onRotate={(e) => console.log('Rotate:', e.nativeEvent)}
-      />
+      {modelUrl ? (
+        <PlatoArView
+          style={styles.arView}
+          modelUrl={modelUrl}
+          onTap={(e) => console.log('Tap:', e.nativeEvent)}
+          onPinch={(e) => console.log('Pinch:', e.nativeEvent)}
+          onRotate={(e) => console.log('Rotate:', e.nativeEvent)}
+        />
+      ) : (
+        <View style={[styles.arView, styles.loadingContainer]}>
+          <Text style={styles.loadingText}>Loading AR Model...</Text>
+        </View>
+      )}
 
       {/* Debug Logger Overlay */}
       <DebugLogger visible={true} />
@@ -259,6 +342,7 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
         <TouchableOpacity style={styles.controlButton} onPress={captureObservation}>
           <Text style={styles.controlButtonText}>📸 Capture</Text>
         </TouchableOpacity>
+
       </View>
 
       {/* Current Transcript */}
@@ -359,6 +443,16 @@ const styles = StyleSheet.create({
   },
   arView: {
     flex: 1,
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000',
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
   },
   floatingControls: {
     position: 'absolute',

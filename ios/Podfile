@@ -13,10 +13,8 @@ platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
 prepare_react_native_project!
 
 target 'PlatoAR' do
+  pod 'plato-ar', :path => '../modules/plato-ar'
   use_expo_modules!
-
-  # Explicitly include our local PlatoAr module
-  pod 'PlatoAr', :path => '../modules/plato-ar/ios'
 
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'
     config_command = ['node', '-e', "process.argv=['', '', 'config'];require('@react-native-community/cli').run()"];

@@ -10,17 +10,8 @@
     "web": "expo start --web",
     "postprebuild": "node scripts/fix-expo-modules-provider.js"
   },
-  "expo": {
-    "autolinking": {
-      "searchPaths": [
-        "node_modules",
-        "./modules"
-      ],
-      "nativeModulesDir": "./modules",
-      "legacy_shallowReactNativeLinking": true
-    }
-  },
   "dependencies": {
+    "@jamsch/expo-speech-recognition": "^0.2.15",
     "@react-navigation/native": "^7.1.17",
     "@react-navigation/stack": "^7.4.8",
     "expo": "~54.0.6",

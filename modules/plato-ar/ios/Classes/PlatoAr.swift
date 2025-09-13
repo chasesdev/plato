@@ -1,20 +1,29 @@
 import ExpoModulesCore
 import ARKit
 import RealityKit
-import Speech
-import AVFoundation
 import Combine
 
+// Event name constants for AR functionality
+private let EVENT_MODEL_INTERACTION = "modelInteraction"
+private let EVENT_AR_SESSION_STARTED = "arSessionStarted"
+private let EVENT_AR_ERROR = "arError"
+
 public class PlatoArModule: Module {
-  private var speechRecognizer: SFSpeechRecognizer?
-  private var audioEngine: AVAudioEngine?
-  private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
-  private var recognitionTask: SFSpeechRecognitionTask?
+  // Shared instance for event emission
+  static var sharedInstance: PlatoArModule?
+
 
   public func definition() -> ModuleDefinition {
     Name("PlatoAr")
 
-    Events("onSpeechDetected", "onModelInteraction", "onARSessionStarted", "onARError")
+    OnCreate {
+      // Set this as the shared instance for event emission
+      PlatoArModule.sharedInstance = self
+      print("📡 EVENT SETUP: Module created and shared instance set")
+    }
+
+    // Define events that this module can emit (using Expo convention)
+    Events(EVENT_MODEL_INTERACTION, EVENT_AR_SESSION_STARTED, EVENT_AR_ERROR)
 
     // Define the View with proper ViewManager setup
     View(PlatoArView.self) {
@@ -58,16 +67,7 @@ public class PlatoArModule: Module {
       promise.resolve(true)
     }
 
-    AsyncFunction("startVoiceRecognition") { (promise: Promise) in
-      self.requestSpeechAuthorization { authorized in
-        if authorized {
-          self.startListening()
-          promise.resolve(true)
-        } else {
-          promise.reject("SPEECH_AUTH_ERROR", "Speech recognition not authorized")
-        }
-      }
-    }
+
 
     AsyncFunction("captureARScreenshot") { (promise: Promise) in
       print("🎯 MODULE captureARScreenshot called")
@@ -81,9 +81,6 @@ public class PlatoArModule: Module {
       }
     }
 
-    Function("stopVoiceRecognition") {
-      self.stopListening()
-    }
 
     Function("loadUSDZModel") { (modelPath: String) -> Bool in
       print("🚀 SWIFT CHANGES WORKING! loadUSDZModel called with: \(modelPath)")
@@ -105,121 +102,6 @@ public class PlatoArModule: Module {
   private var cancellables = Set<AnyCancellable>()
 
 
-  // MARK: - Speech Recognition
-
-  private func requestSpeechAuthorization(completion: @escaping (Bool) -> Void) {
-    SFSpeechRecognizer.requestAuthorization { authStatus in
-      DispatchQueue.main.async {
-        completion(authStatus == .authorized)
-      }
-    }
-  }
-
-  private func startListening() {
-    print("🎤 Starting speech recognition...")
-
-    // Initialize speech recognizer
-    speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
-    audioEngine = AVAudioEngine()
-
-    guard let speechRecognizer = speechRecognizer,
-          let audioEngine = audioEngine,
-          speechRecognizer.isAvailable else {
-      print("🔴 Speech recognizer not available")
-      print("🔴 Speech recognizer: \(speechRecognizer?.description ?? "nil")")
-      print("🔴 Audio engine: \(audioEngine?.description ?? "nil")")
-      print("🔴 Is available: \(speechRecognizer?.isAvailable ?? false)")
-      self.sendEvent("onARError", ["error": "Speech recognizer not available"])
-      return
-    }
-
-    print("✅ Speech recognizer initialized successfully")
-    print("🎤 Recognizer locale: \(speechRecognizer.locale.identifier)")
-
-    do {
-      // Configure audio session
-      let audioSession = AVAudioSession.sharedInstance()
-      print("🔧 Configuring audio session...")
-      try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
-      try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-      print("✅ Audio session configured successfully")
-
-      recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
-
-      guard let recognitionRequest = recognitionRequest else {
-        print("🔴 Unable to create speech recognition request")
-        self.sendEvent("onARError", ["error": "Unable to create speech recognition request"])
-        return
-      }
-
-      recognitionRequest.shouldReportPartialResults = true
-      print("✅ Recognition request created with partial results enabled")
-
-      let inputNode = audioEngine.inputNode
-      let recordingFormat = inputNode.outputFormat(forBus: 0)
-      print("🎵 Audio format: \(recordingFormat.description)")
-
-      inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
-        recognitionRequest.append(buffer)
-        // print("🔊 Audio buffer received: \(buffer.frameLength) frames") // Comment out to reduce spam
-      }
-
-      audioEngine.prepare()
-      try audioEngine.start()
-      print("✅ Audio engine started successfully")
-
-      recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { result, error in
-        DispatchQueue.main.async {
-          if let result = result {
-            let transcript = result.bestTranscription.formattedString
-            print("🗣️ Speech recognition result: '\(transcript)', isFinal: \(result.isFinal)")
-            print("🗣️ Confidence: \(result.bestTranscription.segments.count) segments")
-
-            print("📡 About to send speech event: '\(transcript)', isFinal: \(result.isFinal)")
-            self.sendEvent("onSpeechDetected", [
-              "transcript": transcript,
-              "isFinal": result.isFinal
-            ])
-            print("📡 Speech event sent successfully")
-          }
-
-          if let error = error {
-            print("🔴 Speech recognition error: \(error.localizedDescription)")
-            print("🔴 Error details: \(error)")
-            self.sendEvent("onARError", ["error": "Speech recognition error: \(error.localizedDescription)"])
-          }
-
-          if error != nil || result?.isFinal == true {
-            print("🛑 Stopping speech recognition (error: \(error != nil), final: \(result?.isFinal == true))")
-            self.stopListening()
-
-            // Auto-restart if not final and no error
-            if error == nil && result?.isFinal == false {
-              print("🔄 Auto-restarting speech recognition in 0.5s...")
-              DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                self.startListening()
-              }
-            }
-          }
-        }
-      }
-      print("✅ Speech recognition task started successfully")
-    } catch {
-      print("🔴 Failed to start audio engine: \(error.localizedDescription)")
-      print("🔴 Error details: \(error)")
-      self.sendEvent("onARError", ["error": "Failed to start audio engine: \(error.localizedDescription)"])
-    }
-  }
-
-  private func stopListening() {
-    audioEngine?.stop()
-    audioEngine?.inputNode.removeTap(onBus: 0)
-    recognitionRequest?.endAudio()
-    recognitionTask?.cancel()
-
-    recognitionRequest = nil
-    recognitionTask = nil
-  }
 }
 
 // MARK: - AR View Component
@@ -386,15 +268,15 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
     guard let arView = arView,
           let url = URL(string: urlString) else {
       print("🔴 Cannot load model: AR view not ready or invalid URL: \(urlString)")
-      module?.sendEvent("onARError", ["error": "Invalid model URL or AR view not ready"])
+      module?.sendEvent(EVENT_AR_ERROR, ["error": "Invalid model URL or AR view not ready"])
       return
     }
 
     print("🔄 Starting to load USDZ model from: \(urlString)")
     print("🔄 AR view ready: true, AR session running: \(isARSessionRunning)")
 
-    // Create anchor for horizontal plane
-    let anchor = AnchorEntity(plane: .horizontal)
+    // Create anchor directly in world space (no plane detection needed)
+    let anchor = AnchorEntity(world: SIMD3<Float>(0, 0, -1.0))
 
     // Load USDZ model asynchronously
     Entity.loadModelAsync(contentsOf: url)
@@ -406,7 +288,7 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
           case .failure(let error):
             print("🔴 Failed to load model: \(error.localizedDescription)")
             print("🔴 Error details: \(error)")
-            self.module?.sendEvent("onARError", ["error": "Model loading failed: \(error.localizedDescription)"])
+            self.module?.sendEvent(EVENT_AR_ERROR, ["error": "Model loading failed: \(error.localizedDescription)"])
           }
         }
       }, receiveValue: { entity in
@@ -414,17 +296,20 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
           print("✅ Model entity created successfully")
           print("📏 Original model scale: \(entity.scale)")
 
-          // Scale down the model if needed
-          entity.scale = SIMD3<Float>(0.1, 0.1, 0.1) // Increased scale for better visibility
+          // Scale up the model for better visibility
+          entity.scale = SIMD3<Float>(0.5, 0.5, 0.5) // Increased scale from 0.1 to 0.5
 
           anchor.addChild(entity)
           arView.scene.addAnchor(anchor)
 
           print("✅ Model added to AR scene with anchor")
           print("🎯 Total anchors in scene: \(arView.scene.anchors.count)")
+          print("📍 Anchor position: \(anchor.position)")
+          print("📏 Entity scale: \(entity.scale)")
+          print("🌍 Anchor world position: \(anchor.transform.translation)")
 
           // Notify JavaScript that model loaded successfully
-          self.module?.sendEvent("onARSessionStarted", ["modelLoaded": true])
+          self.module?.sendEvent(EVENT_AR_SESSION_STARTED, ["modelLoaded": true])
         }
       })
       .store(in: &cancellables)
