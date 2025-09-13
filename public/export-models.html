@@ -53,11 +53,17 @@
 
     <div class="status" id="status">Ready to export models...</div>
 
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/"
+        }
+    }
+    </script>
     <script type="module">
-        // Make exportModel available globally
-        window.exportModel = null;
-        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js';
-        import { GLTFExporter } from 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/exporters/GLTFExporter.js';
+        import * as THREE from 'three';
+        import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 
         // Create science models
         function createCell() {
