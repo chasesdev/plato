@@ -67,6 +67,20 @@ class PlatoAr {
     return result;
   }
 
+  scaleModel(scale: number): boolean {
+    console.log('🔄 Calling native scaleModel with:', scale);
+    const result = PlatoArModule.scaleModel(scale);
+    console.log('✅ scaleModel result:', result);
+    return result;
+  }
+
+  rotateModel(rotation: number): boolean {
+    console.log('🔄 Calling native rotateModel with:', rotation);
+    const result = PlatoArModule.rotateModel(rotation);
+    console.log('✅ rotateModel result:', result);
+    return result;
+  }
+
 
 
   addModelInteractionListener(listener: (event: ModelInteractionEvent) => void) {

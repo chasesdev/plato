@@ -95,6 +95,28 @@ public class PlatoArModule: Module {
       return true
     }
 
+    Function("scaleModel") { (scale: Float) -> Bool in
+      print("🔄 scaleModel called with: \(scale)")
+
+      DispatchQueue.main.async {
+        NotificationCenter.default.post(name: NSNotification.Name("ScaleModel"), object: scale)
+        print("🎯 MODULE sent ScaleModel notification")
+      }
+
+      return true
+    }
+
+    Function("rotateModel") { (rotation: Float) -> Bool in
+      print("🔄 rotateModel called with: \(rotation)")
+
+      DispatchQueue.main.async {
+        NotificationCenter.default.post(name: NSNotification.Name("RotateModel"), object: rotation)
+        print("🎯 MODULE sent RotateModel notification")
+      }
+
+      return true
+    }
+
   }
 
   // MARK: - Private Methods
@@ -112,6 +134,8 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
   private weak var module: PlatoArModule?
   private var detectedPlanes: [UUID: ARPlaneAnchor] = [:]
   private var pendingModelUrl: String?
+  private var currentModelEntity: Entity?
+  private var currentModelAnchor: AnchorEntity?
 
   public required init(appContext: AppContext? = nil) {
     print("🏗️ PlatoArView init() called with appContext: \(appContext != nil ? "present" : "nil")")
@@ -136,6 +160,22 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
     )
     print("🏗️ Added CaptureARScreenshot notification listener")
 
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(handleScaleModelNotification(_:)),
+      name: NSNotification.Name("ScaleModel"),
+      object: nil
+    )
+    print("🏗️ Added ScaleModel notification listener")
+
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(handleRotateModelNotification(_:)),
+      name: NSNotification.Name("RotateModel"),
+      object: nil
+    )
+    print("🏗️ Added RotateModel notification listener")
+
     print("🏗️ PlatoArView initialization complete")
   }
 
@@ -157,6 +197,26 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
       captureScreenshot(promise: promise)
     } else {
       print("🔴 VIEW notification had invalid promise object")
+    }
+  }
+
+  @objc private func handleScaleModelNotification(_ notification: Notification) {
+    print("🔄 VIEW received ScaleModel notification")
+    if let scale = notification.object as? Float {
+      print("🔄 VIEW scaling model by: \(scale)")
+      scaleCurrentModel(by: scale)
+    } else {
+      print("🔴 VIEW notification had invalid scale value")
+    }
+  }
+
+  @objc private func handleRotateModelNotification(_ notification: Notification) {
+    print("🔄 VIEW received RotateModel notification")
+    if let rotation = notification.object as? Float {
+      print("🔄 VIEW rotating model by: \(rotation)")
+      rotateCurrentModel(by: rotation)
+    } else {
+      print("🔴 VIEW notification had invalid rotation value")
     }
   }
 
@@ -201,15 +261,6 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
       // Set session delegate for monitoring
       arView.session.delegate = self
 
-      // Add a simple overlay to confirm the view is working
-      let label = UILabel(frame: CGRect(x: 20, y: 50, width: 200, height: 30))
-      label.text = "PlatoAR View Active"
-      label.textColor = .white
-      label.backgroundColor = UIColor.black.withAlphaComponent(0.7)
-      label.textAlignment = .center
-      label.layer.cornerRadius = 5
-      label.clipsToBounds = true
-      arView.addSubview(label)
     }
   }
 
@@ -343,6 +394,10 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
           // Apply model-specific scale for fallback positioning
           entity.scale = SIMD3<Float>(scale, scale, scale)
 
+          // Track the current model for controls
+          self.currentModelEntity = entity
+          self.currentModelAnchor = anchor
+
           anchor.addChild(entity)
           arView.scene.addAnchor(anchor)
 
@@ -431,6 +486,32 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
   }
 
   private var cancellables = Set<AnyCancellable>()
+
+  // MARK: - Model Control Methods
+
+  private func scaleCurrentModel(by scale: Float) {
+    guard let entity = currentModelEntity else {
+      print("🔴 No current model to scale")
+      return
+    }
+
+    // Apply relative scaling
+    let newScale = entity.scale * scale
+    entity.scale = newScale
+    print("✅ Model scaled to: \(newScale)")
+  }
+
+  private func rotateCurrentModel(by rotation: Float) {
+    guard let entity = currentModelEntity else {
+      print("🔴 No current model to rotate")
+      return
+    }
+
+    // Apply rotation around Y axis (vertical rotation)
+    let rotationTransform = Transform(pitch: 0, yaw: rotation, roll: 0)
+    entity.transform = entity.transform * rotationTransform
+    print("✅ Model rotated by: \(rotation) radians")
+  }
 
   // MARK: - ARSessionDelegate
 
@@ -538,7 +619,7 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
     )
     let modelPosition = SIMD3<Float>(
       planePosition.x,
-      planePosition.y + yOffset, // Slightly above the plane
+      planePosition.y + abs(yOffset), // Ensure models are ABOVE the plane
       planePosition.z + distance // Move away from user
     )
 
@@ -565,6 +646,10 @@ public class PlatoArView: ExpoView, ARSessionDelegate {
 
           // Apply model-specific scale
           entity.scale = SIMD3<Float>(scale, scale, scale)
+
+          // Track the current model for controls
+          self.currentModelEntity = entity
+          self.currentModelAnchor = anchor
 
           anchor.addChild(entity)
           arView.scene.addAnchor(anchor)

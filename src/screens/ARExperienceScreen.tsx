@@ -367,8 +367,16 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
             console.log('Tap:', e.nativeEvent);
             dismissKeyboard();
           }}
-          onPinch={(e) => console.log('Pinch:', e.nativeEvent)}
-          onRotate={(e) => console.log('Rotate:', e.nativeEvent)}
+          onPinch={(e) => {
+            console.log('Pinch:', e.nativeEvent);
+            const scale = e.nativeEvent.scale || 1.0;
+            PlatoAr.scaleModel(scale);
+          }}
+          onRotate={(e) => {
+            console.log('Rotate:', e.nativeEvent);
+            const rotation = e.nativeEvent.rotation || 0;
+            PlatoAr.rotateModel(rotation);
+          }}
         />
       ) : (
         <TouchableWithoutFeedback onPress={dismissKeyboard}>
