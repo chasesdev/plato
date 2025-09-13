@@ -506,13 +506,10 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
                   style={styles.clearButton}
                   onPress={async () => {
                     setTextInput('');
-                    // Clear speech recognition buffer by restarting it
                     if (isListening) {
-                      await stopListening();
-                      // Brief delay to ensure buffer is cleared
-                      setTimeout(() => {
-                        startListening();
-                      }, 150);
+                      // Abort current recognition (clears internal buffer instantly)
+                      await ExpoSpeechRecognitionModule.abort();
+                      // Recognition session continues, but buffer is cleared
                     }
                   }}
                 >
