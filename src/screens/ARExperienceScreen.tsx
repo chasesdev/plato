@@ -498,20 +498,30 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
 
           {/* Text Input for Development Mode */}
           <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.textInput}
-              placeholder={language === 'english' ? 'Type observation...' : 'Escribe observación...'}
-              placeholderTextColor="#999"
-              value={textInput}
-              onChangeText={setTextInput}
-              onSubmitEditing={() => {
-                if (textInput.trim()) {
-                  handleVoiceInput(textInput.trim());
-                  setTextInput('');
-                }
-              }}
-              returnKeyType="send"
-            />
+            <View style={styles.textInputWrapper}>
+              <TextInput
+                style={styles.textInput}
+                placeholder={language === 'english' ? 'Type observation...' : 'Escribe observación...'}
+                placeholderTextColor="#999"
+                value={textInput}
+                onChangeText={setTextInput}
+                onSubmitEditing={() => {
+                  if (textInput.trim()) {
+                    handleVoiceInput(textInput.trim());
+                    setTextInput('');
+                  }
+                }}
+                returnKeyType="send"
+              />
+              {textInput.length > 0 && (
+                <TouchableOpacity
+                  style={styles.clearButton}
+                  onPress={() => setTextInput('')}
+                >
+                  <Text style={styles.clearButtonText}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
             <TouchableOpacity
               style={styles.sendButton}
               onPress={() => {
@@ -657,15 +667,33 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
   },
-  textInput: {
+  textInputWrapper: {
     flex: 1,
+    position: 'relative',
+  },
+  textInput: {
     height: 40,
     borderWidth: 1,
     borderColor: '#E0E0E0',
     borderRadius: 20,
     paddingHorizontal: 15,
+    paddingRight: 40,
     fontSize: 16,
     backgroundColor: '#F5F5F5',
+  },
+  clearButton: {
+    position: 'absolute',
+    right: 12,
+    top: 8,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clearButtonText: {
+    color: '#999',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   sendButton: {
     width: 40,
