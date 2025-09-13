@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Export Science Models to GLB</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        #canvas {
+            width: 400px;
+            height: 400px;
+            background: white;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            background: #0F4C81;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #003057;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Export Science Models to GLB</h1>
+    <p>Click each button to download the GLB file for that model.</p>
+
+    <div id="canvas"></div>
+
+    <div>
+        <button onclick="exportModel('cell')">Export Cell Model</button>
+        <button onclick="exportModel('molecule')">Export Molecule Model</button>
+        <button onclick="exportModel('volcano')">Export Volcano Model</button>
+    </div>
+
+    <div class="status" id="status">Ready to export models...</div>
+
+    <script type="module">
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js';
+        import { GLTFExporter } from 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/exporters/GLTFExporter.js';
+
+        // Create science models
+        function createCell() {
+            const cell = new THREE.Group();
+
+            // Nucleus (purple center)
+            const nucleus = new THREE.Mesh(
+                new THREE.SphereGeometry(0.3, 32, 16),
+                new THREE.MeshPhongMaterial({ color: 0x7209B7 })
+            );
+            nucleus.name = 'nucleus';
+
+            // Cell membrane (cyan translucent outer layer)
+            const membrane = new THREE.Mesh(
+                new THREE.SphereGeometry(0.5, 32, 16),
+                new THREE.MeshPhongMaterial({
+                    color: 0x00B4D8,
+                    transparent: true,
+                    opacity: 0.3
+                })
+            );
+            membrane.name = 'membrane';
+
+            // Mitochondria (green organelles)
+            for (let i = 0; i < 5; i++) {
+                const mitochondrion = new THREE.Mesh(
+                    new THREE.CapsuleGeometry(0.05, 0.1, 8, 16),
+                    new THREE.MeshPhongMaterial({ color: 0x52B788 })
+                );
+                mitochondrion.position.set(
+                    (Math.random() - 0.5) * 0.4,
+                    (Math.random() - 0.5) * 0.4,
+                    (Math.random() - 0.5) * 0.4
+                );
+                mitochondrion.name = `mitochondrion-${i}`;
+                cell.add(mitochondrion);
+            }
+
+            // Endoplasmic reticulum (blue ribbons)
+            const erGeometry = new THREE.TorusGeometry(0.2, 0.02, 8, 20);
+            const erMaterial = new THREE.MeshPhongMaterial({ color: 0x0F4C81 });
+            const er = new THREE.Mesh(erGeometry, erMaterial);
+            er.rotation.x = Math.PI / 4;
+            er.name = 'endoplasmic-reticulum';
+            cell.add(er);
+
+            cell.add(nucleus, membrane);
+            return cell;
+        }
+
+        function createWaterMolecule() {
+            const molecule = new THREE.Group();
+
+            // Oxygen atom (red, larger)
+            const oxygen = new THREE.Mesh(
+                new THREE.SphereGeometry(0.12, 32, 16),
+                new THREE.MeshPhongMaterial({ color: 0xFF0000 })
+            );
+            oxygen.name = 'oxygen';
+
+            // Hydrogen atoms (white, smaller)
+            const h1 = new THREE.Mesh(
+                new THREE.SphereGeometry(0.08, 32, 16),
+                new THREE.MeshPhongMaterial({ color: 0xFFFFFF })
+            );
+            h1.position.set(0.15, 0.1, 0);
+            h1.name = 'hydrogen-1';
+
+            const h2 = new THREE.Mesh(
+                new THREE.SphereGeometry(0.08, 32, 16),
+                new THREE.MeshPhongMaterial({ color: 0xFFFFFF })
+            );
+            h2.position.set(-0.15, 0.1, 0);
+            h2.name = 'hydrogen-2';
+
+            // Covalent bonds (gray cylinders)
+            const bondGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.2);
+            const bondMaterial = new THREE.MeshPhongMaterial({ color: 0x666666 });
+
+            const bond1 = new THREE.Mesh(bondGeometry, bondMaterial);
+            bond1.position.set(0.075, 0.05, 0);
+            bond1.rotation.z = -Math.PI / 6;
+            bond1.name = 'bond-1';
+
+            const bond2 = new THREE.Mesh(bondGeometry, bondMaterial);
+            bond2.position.set(-0.075, 0.05, 0);
+            bond2.rotation.z = Math.PI / 6;
+            bond2.name = 'bond-2';
+
+            molecule.add(oxygen, h1, h2, bond1, bond2);
+            return molecule;
+        }
+
+        function createVolcano() {
+            const volcano = new THREE.Group();
+
+            // Volcano cone (brown)
+            const coneGeometry = new THREE.ConeGeometry(0.8, 1.2, 32, 1, true);
+            const coneMaterial = new THREE.MeshPhongMaterial({
+                color: 0x8B4513,
+                side: THREE.DoubleSide
+            });
+            const cone = new THREE.Mesh(coneGeometry, coneMaterial);
+            cone.position.y = 0.6;
+            cone.name = 'volcanic-cone';
+
+            // Crater opening at top
+            const craterGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.1, 32);
+            const craterMaterial = new THREE.MeshPhongMaterial({
+                color: 0x333333
+            });
+            const crater = new THREE.Mesh(craterGeometry, craterMaterial);
+            crater.position.y = 1.15;
+            crater.name = 'crater';
+
+            // Magma chamber (orange-red, glowing)
+            const chamberGeometry = new THREE.SphereGeometry(0.3, 32, 16);
+            const chamberMaterial = new THREE.MeshPhongMaterial({
+                color: 0xFF4500,
+                emissive: 0xFF0000,
+                emissiveIntensity: 0.3
+            });
+            const chamber = new THREE.Mesh(chamberGeometry, chamberMaterial);
+            chamber.position.y = -0.1;
+            chamber.name = 'magma-chamber';
+
+            // Lava conduit (vertical pipe)
+            const conduitGeometry = new THREE.CylinderGeometry(0.08, 0.15, 1.0);
+            const conduitMaterial = new THREE.MeshPhongMaterial({
+                color: 0xFF6347,
+                emissive: 0xFF0000,
+                emissiveIntensity: 0.2
+            });
+            const conduit = new THREE.Mesh(conduitGeometry, conduitMaterial);
+            conduit.position.y = 0.4;
+            conduit.name = 'lava-conduit';
+
+            // Add lava particles for eruption effect
+            const particleCount = 20;
+            const particleGeometry = new THREE.SphereGeometry(0.02, 8, 8);
+            const particleMaterial = new THREE.MeshPhongMaterial({
+                color: 0xFF4500,
+                emissive: 0xFF0000,
+                emissiveIntensity: 0.5
+            });
+
+            for (let i = 0; i < particleCount; i++) {
+                const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+                const angle = (i / particleCount) * Math.PI * 2;
+                const radius = 0.1 + Math.random() * 0.05;
+                particle.position.set(
+                    Math.cos(angle) * radius,
+                    1.2 + Math.random() * 0.2,
+                    Math.sin(angle) * radius
+                );
+                particle.name = `lava-particle-${i}`;
+                volcano.add(particle);
+            }
+
+            volcano.add(cone, crater, chamber, conduit);
+            return volcano;
+        }
+
+        // Initialize Three.js scene for preview
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf0f0f0);
+
+        const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+        camera.position.z = 2;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(400, 400);
+        document.getElementById('canvas').appendChild(renderer.domElement);
+
+        // Add lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(5, 5, 5);
+        scene.add(directionalLight);
+
+        let currentModel = null;
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            if (currentModel) {
+                currentModel.rotation.y += 0.01;
+            }
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Export function
+        window.exportModel = function(modelType) {
+            const status = document.getElementById('status');
+            status.textContent = `Creating ${modelType} model...`;
+
+            // Remove current model
+            if (currentModel) {
+                scene.remove(currentModel);
+            }
+
+            // Create new model
+            switch(modelType) {
+                case 'cell':
+                    currentModel = createCell();
+                    break;
+                case 'molecule':
+                    currentModel = createWaterMolecule();
+                    break;
+                case 'volcano':
+                    currentModel = createVolcano();
+                    break;
+            }
+
+            scene.add(currentModel);
+
+            // Export to GLB
+            const exporter = new GLTFExporter();
+            exporter.parse(
+                currentModel,
+                function(result) {
+                    // Download the file
+                    const blob = new Blob([result], { type: 'model/gltf-binary' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `${modelType}.glb`;
+                    link.click();
+
+                    status.textContent = `✅ Exported ${modelType}.glb successfully!`;
+                },
+                function(error) {
+                    console.error('Export error:', error);
+                    status.textContent = `❌ Error exporting ${modelType}: ${error.message}`;
+                },
+                { binary: true }
+            );
+        };
+    </script>
+</body>
+</html>
