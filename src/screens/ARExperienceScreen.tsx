@@ -425,7 +425,7 @@ export default function ARExperienceScreen({ route }: ARExperienceScreenProps) {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.conversationPanel}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 0}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 20}
         >
           <ScrollView
             ref={scrollViewRef}
